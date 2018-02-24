@@ -1,0 +1,112 @@
+<!doctype html>
+<html ng-app="app" lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/mdc.css">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.min.js"></script>
+     <script type="text/javascript" src="/funcfactory.js"></script>
+     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script>
+    <script type="text/javascript" src="/js/app.js"></script>
+    <title>Megalith</title>
+</head>
+
+<body ng-controller="dashboard" class="mdc-typography mdc-theme--secondary">
+    <aside style="position: absolute;height: 100%;overflow-y: auto;" class="mdc-drawer mdc-drawer--persistent mdc-typography ">
+        <nav class="mdc-drawer__drawer">
+            <header class="mdc-drawer__header ">
+                <div class="mdc-drawer__header-content">
+                    Megalith
+                </div>
+            </header>
+            <nav id="icon-with-text-demo" class="mdc-drawer__content mdc-list mdc-theme--secondary ">
+                <a class="mdc-list-item mdc-list-item--activated " href="/">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">data_usage</i> Dashboard 
+      </a>
+                <a class="mdc-list-item" href="/servers">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings_system_daydream</i> Servers
+      </a>
+                <a class="mdc-list-item" href="/contacts">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
+      </a>
+        <a class="mdc-list-item " href="/settings">
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
+       </a>
+            </nav>
+        </nav>
+    </aside>
+    <header class="mdc-toolbar mdc-theme--secondary-dark-bg">
+        <div class="mdc-toolbar__row">
+            <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
+                <button class="menu material-icons mdc-toolbar__menu-icon">menu</button>
+                <span class="mdc-toolbar__title">Dashboard</span>
+            </section>
+        </div>
+    </header>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <div class="sub-body">
+        <div role="progressbar" ng-show="loading" class="mdc-linear-progress mdc-linear-progress--indeterminate">
+  <div class="mdc-linear-progress__buffering-dots"></div>
+  <div class="mdc-linear-progress__buffer"></div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+    <span class="mdc-linear-progress__bar-inner"></span>
+  </div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+    <span class="mdc-linear-progress__bar-inner"></span>
+  </div>
+</div>
+<div style="padding:30px;"  class="text-center" ng-show="!mega.Servers.length  || mega.Servers.length == 0 ">
+   <h3>Welcome to Megalith</h3>
+              <p>Get started by adding a new server to monitor</p>
+              <p><a href="/servers" class="mdc-button">Add a new server</a></p>
+</div>
+        <div class="mdc-layout-grid">
+
+            <div class="mdc-layout-grid__inner">
+             
+                <div class="mdc-layout-grid__cell" ng-repeat="server in mega.Servers" ng-show="server.Live">
+                    <div class="mdc-card">
+                        <div class="mdc-card__media mdc-card__media--square">
+                              <div class="mdc-card__media-content"><h3>{{ server.Nickname }} </h3>
+                              <h5>{{ server.Host }} </h5>
+                              <p g-class="{'text-danger' : (server.Uptime < 40),'text-success' : (server.Uptime > 70),'text-warning' : (server.Uptime < 70 && server.Uptime > 40 )}" >{{ round(server.Uptime) }}% uptime</p>
+                              <label>HTTP Response codes from server:</label>
+                              <canvas id="{{server.ID }}"></canvas>
+                              <label>( Code 900: the server is not accessible)</label>
+                            </div>
+                        </div>
+                        <!-- ... content ... -->
+                        <div class="mdc-card__actions">
+                            <div class="mdc-card__action-buttons">
+                                <a class="mdc-button mdc-button--raised  mdc-ripple-upgraded mdc-card__action mdc-card__action--button" href="/servers?edit={{ server.ID }}">Open</a>              
+                            </div>
+                         
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
+        <div class="mdc-snackbar__text"></div>
+        <div class="mdc-snackbar__action-wrapper">
+            <button type="button" class="mdc-snackbar__action-button"></button>
+        </div>
+    </div>
+    <script type="text/javascript">
+    window.__snackbar = new mdc.snackbar.MDCSnackbar(document.querySelector('.mdc-snackbar'));
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html ng-app="app" lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/mdc.css">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.min.js"></script>
+    <script type="text/javascript" src="/js/app.js"></script>
+      <script type="text/javascript" src="/funcfactory.js"></script>
+    <script type="text/javascript" src="/js/settings.js"></script>
+    <title>Settings : Megalith</title>
+</head>
+
+<body ng-controller="Settings" class="mdc-typography mdc-theme--secondary-dark-bg">
+    <aside style="position: absolute;height: 100%;" class="mdc-drawer mdc-drawer--persistent mdc-typography">
+        <nav class="mdc-drawer__drawer">
+            <header class="mdc-drawer__header ">
+                <div class="mdc-drawer__header-content">
+                    Megalith
+                </div>
+            </header>
+            <nav id="icon-with-text-demo" class="mdc-drawer__content mdc-list">
+                <a class="mdc-list-item " href="/">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">data_usage</i> Dashboard 
+      </a>
+                <a class="mdc-list-item" href="/servers">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings_system_daydream</i> Servers
+      </a>
+                <a class="mdc-list-item" href="/contacts">
+        <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
+      </a>
+                <a class="mdc-list-item mdc-list-item--activated" href="/settings">
+          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
+       </a>
+            </nav>
+        </nav>
+    </aside>
+    <header class="mdc-toolbar mdc-theme--secondary-dark-bg">
+        <div class="mdc-toolbar__row">
+            <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
+                <button class="menu material-icons mdc-toolbar__menu-icon">menu</button>
+                <span class="mdc-toolbar__title">Settings</span>
+            </section>
+        </div>
+    </header>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <div class="sub-body">
+        <div role="progressbar" ng-show="loading" class="mdc-linear-progress mdc-linear-progress--indeterminate">
+  <div class="mdc-linear-progress__buffering-dots"></div>
+  <div class="mdc-linear-progress__buffer"></div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+    <span class="mdc-linear-progress__bar-inner"></span>
+  </div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+    <span class="mdc-linear-progress__bar-inner"></span>
+  </div>
+</div>
+        <div class="mdc-list-group full-height list-group--custom">
+            <div class="mdc-list-group__subheader">SMTP settings (Plain authentication server.)  <hr class="mdc-list-divider">
+                    <br >
+                     <label>email</label>
+                     <input type="text" placeholder="Login email" ng-model="mega.Mail.Email" class="form-control">
+                     <br >
+                     <label>Login password</label>
+                     <input type="password" placeholder="***" ng-model="mega.Mail.Password" class="form-control">
+                     <label>SMTP host</label>
+                     <input type="text" placeholder="smtp.google.com" ng-model="mega.Mail.Host" class="form-control">
+                      <label>SMTP PORT</label>
+                     <input type="text" placeholder="000" ng-model="mega.Mail.Port" class="form-control">
+                     <br >
+                      <button ng-click="updateMail()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
+                  </div>
+            <!--<hr class="mdc-list-divider">
+            <div class="mdc-list-group__subheader">
+                          
+                            <label>Health check interval</label>
+                            <p class="text-muted">The following field specifies how often Megalith should verify if servers are accessible (in minutes).</p>
+                          
+                           <input type="number" placeholder="0" min="1" ng-model="mega.Cl.Interval" class="form-control"><br>
+                             <button ng-click="updateMega()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
+                            </div> -->
+        </div>
+    </div>
+        <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
+        <div class="mdc-snackbar__text"></div>
+        <div class="mdc-snackbar__action-wrapper">
+            <button type="button" class="mdc-snackbar__action-button"></button>
+        </div>
+    </div>
+    <script type="text/javascript">
+    window.__snackbar = new mdc.snackbar.MDCSnackbar(document.querySelector('.mdc-snackbar'));
+    </script>
+</body>
+
+</html>

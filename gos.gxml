@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gos>
+	<!-- xml docs : http://golangserver.com/docs/markup.html -->
+	<deploy>webapp</deploy>
+	<port>9001</port>
+	<package>if-package-is-library</package>
+	<not_found>/your-404-page</not_found>
+	<error>/your-500-page</error>
+
+	<output>application.go</output>
+	<domain></domain><!-- Cookie domain -->
+	<var type="*MegaConfig">Config</var>
+	<var type="TrLock">GL</var>
+	<import src="github.com/cheikhshift/momentum/gos.gxml"/>
+	<import src="strings"/>
+	<import src="runtime"/>
+	<import src="math/rand"/>
+	<import src="sync"/>
+	<import src="path/filepath"/>
+	<import src="github.com/cheikhshift/gos/core"/>
+	<main>	
+		Windows := strings.Contains(runtime.GOOS, "windows") 
+		if  Windows {
+				os.Chdir( os.ExpandEnv("$USERPROFILE") )
+		} else {
+				os.Chdir( os.ExpandEnv("$HOME") )
+		}
+
+		
+
+		if  _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
+			err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory),0700)
+			if err != nil {
+				panic(err)
+			}
+			Config = &MegaConfig{}
+			SaveConfig(Config)
+		} else {
+			err = LoadConfig(&Config)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+
+		GL = TrLock{Lock: new (sync.RWMutex)}
+
+		if Prod {
+			if  !Windows {
+	      		if isMac := strings.Contains(runtime.GOOS, "arwin"); isMac { 
+	      			core.RunCmd("open http://localhost:9001/index")
+	      		} else {
+	      			core.RunCmd("xdg-open http://localhost:9001/index")
+	      		}
+	    	} else {
+				core.RunCmd("cmd /C start http://localhost:9001/index")
+	    	}
+    	}
+
+    	// Mega monitor timer
+    	 ticker := time.NewTicker(Checkinterval * time.Minute)
+	     go func() {
+	        for t := range ticker.C {
+	        	go Pulse()
+	            fmt.Println("Beat at", t)
+	        }
+	     }()
+
+	</main>
+
+
+	<key>a very very very very secret key</key>
+	
+	<header> 
+		<struct name="MegaConfig">
+		 	Mail MailSettings
+		 	Servers []Server
+		 	Cl Clock
+		 	Contacts []Contact
+		</struct>
+		<struct name="TrLock">
+		 	Lock  *sync.RWMutex
+		</struct>
+		<struct name="Server">
+		 	Host,Image,Nickname string
+		 	Endpoints []Endpoint
+		 	Live bool
+		 	ID string
+		 	Uptime float64
+		</struct>
+		<struct name="Endpoint">
+		 	Uptime float64
+		 	Method, Path,Headers,Data string
+		 	Timeout time.Duration
+		 	ID string
+		</struct>
+		<struct name="RequestLog">
+		 	Requests []Request
+		</struct>
+		<struct name="Request">
+		 	Code int
+		 	Owner string
+		</struct>
+		<struct name="Contact">
+		 	Nickname,Email string
+		 	Threshold float64
+		 	Watching []string
+		 	ID string
+		</struct>
+		<struct name="MailSettings">
+		 	Email,Password,Host,Port string
+		</struct>
+		<struct name="Clock">
+		 	Interval int
+		</struct>
+	</header>
+	<methods>
+			<func name="Mega" var="" return="(result *MegaConfig)">
+				return Config
+			</func>
+			<func name="AddServer" var="" return="(result []Server)">
+				randint := rand.Intn(200) + 50
+				genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)
+				ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}
+				Config.Servers = append(Config.Servers, ns)
+				SaveConfig(Config);
+				return Config.Servers
+			</func>
+
+			<func name="DServer" var="req Server" return="(result []Server)">
+				result = []Server{}
+				for _,target := range Config.Servers {
+					if target.ID != req.ID {
+						result = append(result, target)
+					}
+				}
+				DeleteLog(req.ID)
+				Config.Servers = result
+				SaveConfig(Config);
+				return
+			</func>
+		    <func name="UServer" var="req Server" return="(result bool)">
+				for index,target := range Config.Servers {
+					if target.ID == req.ID {
+						Config.Servers[index] = req
+					}
+				}
+				SaveConfig(Config);
+				return true
+			</func>
+
+			<!-- contact funcs -->
+			<func name="AddContact" var="" return="(result []Contact)">
+			
+				nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}
+				Config.Contacts = append(Config.Contacts, nc)
+				SaveConfig(Config);
+				return Config.Contacts
+			</func>
+
+			<func name="GetLog" var="req Server" return="(result RequestLog)">
+				LoadLog(req.ID, &result)
+
+				return
+			</func>
+
+			<func name="DContact" var="req Contact" return="(result []Contact)">
+				result = []Contact{}
+				for _,target := range Config.Contacts {
+					if target.ID != req.ID {
+						result = append(result, target)
+					}
+				}
+				Config.Contacts = result
+				SaveConfig(Config);
+				return
+			</func>
+		    <func name="UContact" var="req Contact" return="(result bool)">
+				for index,target := range Config.Contacts {
+					if target.ID == req.ID {
+						Config.Contacts[index] = req
+					}
+				}
+				SaveConfig(Config);
+				return true
+			</func>
+
+			<!-- setting funcs -->
+			<func name="UMail" var="req MailSettings" return="(result bool)">
+				Config.Mail = req
+				SaveConfig(Config);
+				return true
+			</func>
+
+			<func name="UInt" var="req Clock" return="(result bool)">
+				Config.Cl = req
+				SaveConfig(Config);
+				return true
+			</func>
+	</methods>
+
+	<templates>
+
+	</templates>
+	<endpoints>
+  
+	</endpoints>
+</gos>
