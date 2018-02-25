@@ -59,6 +59,7 @@ app.controller('dashboard', ['$scope', function($scope) {
     $scope.loading = false;
     $scope.round = rndFunc;
     $scope.aggData = () => {
+        if (!$scope.mega.Servers) return;
         for (var i = $scope.mega.Servers.length - 1; i >= 0; i--) {
           var server = $scope.mega.Servers[i];
           GetLog(server,function(res){
