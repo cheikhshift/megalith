@@ -97,8 +97,10 @@ func LoadLog(name string, targ interface{}) error {
 
 func Pulse() {
 	GL.Lock.Lock()
+	if Config.Servers != nil {
 	for servIndex, server := range Config.Servers {
 		Process(server, servIndex)
+	}
 	}
 	GL.Lock.Unlock()
 }
@@ -150,6 +152,7 @@ func Process(server Server, servIndex int) {
 }
 
 func Notify(server Server) {
+	if Config.Contacts != nil {
 	for _, contact := range Config.Contacts {
 		if inArr(contact.Watching, server.ID) && contact.Threshold > server.Uptime {
 			err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email)
@@ -157,6 +160,7 @@ func Notify(server Server) {
 				log.Println(err)
 			}
 		}
+	}
 	}
 }
 
