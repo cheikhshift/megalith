@@ -22,6 +22,11 @@ a.mdc-button:focus{
 	text-decoration: none !important;
 }
 
+
+.mdc-tab-bar a:hover,
+.mdc-tab-bar a:focus {
+	text-decoration: none;
+}
 i.material-icons,a.material-icons {
 	cursor: pointer;
 }

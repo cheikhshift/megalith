@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/saintpete/twilio-go"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 )
 
 var ContentJson = "application/json"
+var TwFormat = "%s%s"
 
 func SendEmail(subject, body, to string) error {
 
@@ -98,9 +100,9 @@ func LoadLog(name string, targ interface{}) error {
 func Pulse() {
 	GL.Lock.Lock()
 	if Config.Servers != nil {
-	for servIndex, server := range Config.Servers {
-		Process(server, servIndex)
-	}
+		for servIndex, server := range Config.Servers {
+			Process(server, servIndex)
+		}
 	}
 	GL.Lock.Unlock()
 }
@@ -153,15 +155,29 @@ func Process(server Server, servIndex int) {
 
 func Notify(server Server) {
 	if Config.Contacts != nil {
-	for _, contact := range Config.Contacts {
-		if inArr(contact.Watching, server.ID) && contact.Threshold > server.Uptime {
-			err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email)
-			if err != nil {
-				log.Println(err)
+		for _, contact := range Config.Contacts {
+			if inArr(contact.Watching, server.ID) && contact.Threshold > server.Uptime {
+				if contact.Email != "" {
+					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email)
+					if err != nil {
+						log.Println(err)
+					}
+				}
+				if contact.Phone != "" {
+					err := contact.SendSMS(fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold))
+					if err != nil {
+						log.Println(err)
+					}
+				}
 			}
 		}
 	}
-	}
+}
+
+func (user Contact) SendSMS(message string) error {
+	client := twilio.NewClient(Config.SMS.SID, Config.SMS.Token, nil)
+	_, err := client.Messages.SendMessage(Config.SMS.From, fmt.Sprintf(TwFormat, Config.SMS.CountryCode, user.Phone), message, nil)
+	return err
 }
 
 func Req(server Server, endpoint Endpoint) int {

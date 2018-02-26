@@ -103,8 +103,12 @@
                      <label>Name</label>
                      <input type="text"  placeholder="..." ng-model="scontact.Nickname" class="form-control">
                      <br >
+                     <p ng-show="!mega.Mail.Email || mega.Mail.Email == ''">Please make sure you enter your SMTP server information. Access it <a href="/settings">here.</a> </p>
                      <label>email</label>
                      <input type="email" placeholder="user@domain.com" ng-model="scontact.Email" class="form-control">
+                      <p ng-show="!mega.SMS.Token || mega.SMS.Token == ''">Please make sure you enter your Twilio API information. Access it <a href="/settings">here.</a> </p>
+                     <label>Phone</label>
+                     <input type="text" placeholder="0000" ng-model="scontact.Phone" class="form-control">
                   </div>
                     <hr class="mdc-list-divider">
                     <div class="mdc-list-group__subheader">

@@ -3,7 +3,7 @@ Web server health checker/monitor & uptime logger.
 
 ### Features :
 - Track the uptime of any server.
-- Alert your server's maintainers on downtime.
+- Alert your server's maintainers on downtime (SMS or email).
 - Perfect for SLA reinforcements.
 
 ## Requirements (to build)
@@ -20,13 +20,6 @@ Run the following command to launch application :
 		
 		$ megalith
 
-
-## Roadmap
-Here is a brief outline of this project's goals :
-- `Containerize` web application.
-- Write documentation on using the web interface and json APIs.
-- Slackbot alert integration.
-...
 
 ## Projects used 
 1. Twitter bootstrap beta 4.0.0-beta.2
