@@ -124,7 +124,7 @@ func Process(server Server, servIndex int) {
 			apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
 			for _, reqcap := range logcurrent.Requests {
 				if reqcap.Owner == apiid {
-					if reqcap.Code == 200 {
+					if reqcap.Code < 300 {
 						success++
 					} else {
 						failed++
@@ -138,7 +138,7 @@ func Process(server Server, servIndex int) {
 		success := 0
 		failed := 0
 		for _, reqcap := range logcurrent.Requests {
-			if reqcap.Code == 200 {
+			if reqcap.Code < 300 {
 				success++
 			} else {
 				failed++
