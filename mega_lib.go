@@ -186,7 +186,8 @@ func Req(server Server, endpoint Endpoint) int {
 
 	tr = &http.Transport{}
 
-	tr.IdleConnTimeout = endpoint.Timeout * time.Second
+	tr.ResponseHeaderTimeout = endpoint.Timeout * time.Second
+	//tr.Dial = endpoint.Timeout * time.Second
 
 	// wrap parameters around bson.M map under
 	// key `req`
@@ -210,5 +211,9 @@ func Req(server Server, endpoint Endpoint) int {
 	} else {
 		ert = resp.StatusCode
 	}
+	if resp.Body != nil {
+		resp.Body.Close()
+	}
+	tr.CloseIdleConnections()
 	return ert
 }
