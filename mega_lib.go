@@ -156,7 +156,7 @@ func Process(server Server, servIndex int) {
 func Notify(server Server) {
 	if Config.Contacts != nil {
 		for _, contact := range Config.Contacts {
-			if inArr(contact.Watching, server.ID) && contact.Threshold > server.Uptime {
+			if inArr(contact.Watching, server.ID) && contact.Threshold > (server.Uptime*100) {
 				if contact.Email != "" {
 					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email)
 					if err != nil {
