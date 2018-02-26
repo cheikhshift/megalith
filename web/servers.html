@@ -55,16 +55,16 @@
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <div class="sub-body">
-    <div role="progressbar" ng-show="loading" class="mdc-linear-progress mdc-linear-progress--indeterminate">
-  <div class="mdc-linear-progress__buffering-dots"></div>
-  <div class="mdc-linear-progress__buffer"></div>
-  <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
-    <span class="mdc-linear-progress__bar-inner"></span>
-  </div>
-  <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
-    <span class="mdc-linear-progress__bar-inner"></span>
-  </div>
-</div>
+        <div role="progressbar" ng-show="loading" class="mdc-linear-progress mdc-linear-progress--indeterminate">
+            <div class="mdc-linear-progress__buffering-dots"></div>
+            <div class="mdc-linear-progress__buffer"></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
+        </div>
         <div class="row full-height">
             <div class="col-3 full-height">
                 <ul class="mdc-list mdc-list--two-line mdc-list--avatar-list">
@@ -106,7 +106,9 @@
                                 <label>URL to server</label>
                                 <input type="text" ng-model="sserver.Host" placeholder="URL to API or web interface." class="form-control">
                                 <br>
-                                <input type="checkbox" ng-model="sserver.Live"> <label>Monitor</label><br>
+                                <input type="checkbox" ng-model="sserver.Live">
+                                <label>Monitor</label>
+                                <br>
                                 <button ng-click="updateServer(sserver)" class="mdc-button mdc-button--raised">Save</button>
                             </div>
                             <hr class="mdc-list-divider">
@@ -129,7 +131,6 @@
                             </ul>
                             <br>
                             <hr class="mdc-list-divider">
-                           
                         </div>
                     </div>
                     <div ng-show="sendpoint" class="col-7 full-height">
@@ -147,10 +148,14 @@
                       <input type="text " class="form-control " ng-model="sendpoint.Path " placeholder="/Path/to/test " ng aria-describedby="basic-addon1 ">
                     </div>
                     <label>Request method</label>
-                    <select class="form-control" ng-model="sendpoint.Method">
-                         <option >POST</option>
+                    <select class="form-control " ng-model="sendpoint.Method ">
                                     <option >GET</option>
-                                  
+                                    <option >POST</option>
+                                    
+                                    <option >RESET</option>
+                                    <option >PUT</option>
+                                    <option >DELETE</option>
+                                    <option >OPTIONS</option>                              
                     </select>
                       
                          <p>
@@ -159,13 +164,13 @@
                             <input type="text " class="form-control " placeholder="ie: Content-Type: text/html;\nHeader-2: value; " ng-model="sendpoint.Headers ">
 
                         </p>
-                        <p>
+                        <p ng-show="!sendpoint.Method || sendpoint.Method != 'GET'">
                         <label>Request data</label>
                             <textarea class="form-control " style="min-height: 70px; " placeholder="Data " ng-model="sendpoint.Data "></textarea>
                         </p>
                                                  <br>
                          <label>Request timeout (in seconds)</label>
-                            <input type="number" class="form-control " placeholder="seconds " ng-model="sendpoint.Timeout ">
+                            <input type="number " class="form-control " placeholder="seconds " ng-model="sendpoint.Timeout ">
                       <hr class="mdc-list-divider ">
                       <br >
                         <button ng-click="updateServer(sserver) " class="mdc-button mdc-button--raised ">Save</button>
