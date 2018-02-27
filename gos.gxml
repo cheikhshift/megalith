@@ -125,19 +125,24 @@
 	</header>
 	<methods>
 			<func name="Mega" var="" return="(result *MegaConfig)">
+				GL.Lock.Lock()
+				defer GL.Lock.Unlock()
 				return Config
 			</func>
 			<func name="AddServer" var="" return="(result []Server)">
+				GL.Lock.Lock()
 				randint := rand.Intn(200) + 50
 				genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)
 				ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}
 				Config.Servers = append(Config.Servers, ns)
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return Config.Servers
 			</func>
 
 			<func name="DServer" var="req Server" return="(result []Server)">
 				result = []Server{}
+				GL.Lock.Lock()
 				for _,target := range Config.Servers {
 					if target.ID != req.ID {
 						result = append(result, target)
@@ -145,70 +150,86 @@
 				}
 				DeleteLog(req.ID)
 				Config.Servers = result
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UServer" var="req Server" return="(result bool)">
+				GL.Lock.Lock()
 				for index,target := range Config.Servers {
 					if target.ID == req.ID {
 						Config.Servers[index] = req
 					}
 				}
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<!-- contact funcs -->
 			<func name="AddContact" var="" return="(result []Contact)">
-			
+				GL.Lock.Lock()
 				nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}
 				Config.Contacts = append(Config.Contacts, nc)
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return Config.Contacts
 			</func>
 
 			<func name="GetLog" var="req Server" return="(result RequestLog)">
+				GL.Lock.Lock()
 				LoadLog(req.ID, &result)
-
+				GL.Lock.Unlock()
 				return
 			</func>
 
 			<func name="DContact" var="req Contact" return="(result []Contact)">
 				result = []Contact{}
+				GL.Lock.Lock()
 				for _,target := range Config.Contacts {
 					if target.ID != req.ID {
 						result = append(result, target)
 					}
 				}
+				
 				Config.Contacts = result
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UContact" var="req Contact" return="(result bool)">
+		    	GL.Lock.Lock()
 				for index,target := range Config.Contacts {
 					if target.ID == req.ID {
 						Config.Contacts[index] = req
 					}
 				}
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<!-- setting funcs -->
 			<func name="UMail" var="req MailSettings" return="(result bool)">
+				GL.Lock.Lock()
 				Config.Mail = req
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<func name="UTw" var="req TwilioInfo" return="(result bool)">
+				GL.Lock.Lock()
 				Config.SMS = req
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 			<func name="USetting" var="req Settings" return="(result bool)">
+				GL.Lock.Lock()
 				Config.Misc = req
 				Config.LastReset = time.Now().Unix()
+				GL.Lock.Unlock()
 				SaveConfig(&Config);
 				return true
 			</func>

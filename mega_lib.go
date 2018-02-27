@@ -17,9 +17,8 @@ import (
 
 func MegaTimer(ticker *time.Ticker) {
 	for t := range ticker.C {
-
-		go Pulse()
 		log.Println("Beat at", t)
+		go Pulse()
 	}
 }
 
@@ -107,13 +106,13 @@ func LoadLog(name string, targ interface{}) error {
 }
 
 func Pulse() {
-	GL.Lock.Lock()
 	if Config.Servers != nil {
 		for servIndex, server := range Config.Servers {
-			Process(server, servIndex)
+			if server.Live {
+				Process(server, servIndex)
+			}
 		}
 	}
-	GL.Lock.Unlock()
 }
 
 func ShouldDeleteLog(server string) {
@@ -127,49 +126,52 @@ func ShouldDeleteLog(server string) {
 }
 
 func Process(server Server, servIndex int) {
-	if server.Live {
-		logcurrent := RequestLog{}
-		ShouldDeleteLog(server.ID)
-		LoadLog(server.ID, &logcurrent)
 
-		for _, endpointCheck := range server.Endpoints {
-			reqframe := Req(server, endpointCheck)
-			apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
-			logcurrent.Requests = append(logcurrent.Requests, Request{Code: reqframe, Owner: apiid})
-		}
+	logcurrent := RequestLog{}
+	ShouldDeleteLog(server.ID)
+	LoadLog(server.ID, &logcurrent)
 
-		SaveLog(server.ID, &logcurrent)
-		for endIndex, endpointCheck := range server.Endpoints {
-			success := 0
-			failed := 0
-			apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
-			for _, reqcap := range logcurrent.Requests {
-				if reqcap.Owner == apiid {
-					if reqcap.Code < 300 {
-						success++
-					} else {
-						failed++
-					}
-				}
+	for _, endpointCheck := range server.Endpoints {
+		reqframe := Req(server, endpointCheck)
+		apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
+		logcurrent.Requests = append(logcurrent.Requests, Request{Code: reqframe, Owner: apiid})
+	}
 
-			}
-			Config.Servers[servIndex].Endpoints[endIndex].Uptime = float64(success) / float64(success+failed)
-
-		}
+	SaveLog(server.ID, &logcurrent)
+	for endIndex, endpointCheck := range server.Endpoints {
 		success := 0
 		failed := 0
+		apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
 		for _, reqcap := range logcurrent.Requests {
-			if reqcap.Code < 300 {
-				success++
-			} else {
-				failed++
+			if reqcap.Owner == apiid {
+				if reqcap.Code < 300 {
+					success++
+				} else {
+					failed++
+				}
 			}
-		}
-		Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
 
-		Notify(Config.Servers[servIndex])
-		SaveConfig(Config)
+		}
+		GL.Lock.Lock()
+		Config.Servers[servIndex].Endpoints[endIndex].Uptime = float64(success) / float64(success+failed)
+		GL.Lock.Unlock()
 	}
+	success := 0
+	failed := 0
+	for _, reqcap := range logcurrent.Requests {
+		if reqcap.Code < 300 {
+			success++
+		} else {
+			failed++
+		}
+	}
+	GL.Lock.Lock()
+	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
+	GL.Lock.Unlock()
+
+	Notify(Config.Servers[servIndex])
+	SaveConfig(&Config)
+
 }
 
 func Notify(server Server) {
