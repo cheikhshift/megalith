@@ -22,17 +22,17 @@ func MegaTimer(ticker *time.Ticker) {
 	}
 }
 
-func SendEmail(subject, body, to string) error {
+func SendEmail(subject, body, to string, mail MailSettings) error {
 
-	if Config.Mail.Host == "" || Config.Mail.Email == "" || Config.Mail.Password == "" || Config.Mail.Port == "" {
+	if mail.Host == "" || mail.Email == "" || mail.Password == "" || mail.Port == "" {
 		return errors.New("SMTP settings are not set.")
 	}
 
-	msg := fmt.Sprintf("From: %s\nTo: %s\nSubject:%s\nMIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n%s", Config.Mail.Email, to, subject, body)
+	msg := fmt.Sprintf("From: %s\nTo: %s\nSubject:%s\nMIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n%s", mail.Email, to, subject, body)
 
-	err := smtp.SendMail(fmt.Sprintf("%s:%s", Config.Mail.Host, Config.Mail.Port),
-		smtp.PlainAuth("", Config.Mail.Email, Config.Mail.Password, Config.Mail.Host),
-		Config.Mail.Email, []string{to}, []byte(msg))
+	err := smtp.SendMail(fmt.Sprintf("%s:%s", mail.Host, mail.Port),
+		smtp.PlainAuth("", mail.Email, mail.Password, mail.Host),
+		mail.Email, []string{to}, []byte(msg))
 
 	if err != nil {
 		return err
@@ -168,18 +168,17 @@ func Process(server Server, servIndex int) {
 	GL.Lock.Lock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
 	GL.Lock.Unlock()
-
-	Notify(Config.Servers[servIndex])
-	SaveConfig(&Config)
+	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail )
+	go SaveConfig(&Config)
 
 }
 
-func Notify(server Server) {
-	if Config.Contacts != nil {
-		for _, contact := range Config.Contacts {
+func Notify(server Server, contacts []Contact, mailcfg MailSettings) {
+	if contacts != nil {
+		for _, contact := range contacts {
 			if inArr(contact.Watching, server.ID) && contact.Threshold > (server.Uptime*100) {
 				if contact.Email != "" {
-					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email)
+					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email,mailcfg)
 					if err != nil {
 						log.Println(err)
 					}
