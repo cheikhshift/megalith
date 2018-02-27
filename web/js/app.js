@@ -62,35 +62,36 @@ app.controller('dashboard', ['$scope', function($scope) {
         if (!$scope.mega.Servers) return;
         for (var i = $scope.mega.Servers.length - 1; i >= 0; i--) {
           var server = $scope.mega.Servers[i];
-          GetLog(server,function(res){
-            if(res.result){
-              var ctx = document.getElementById(server.ID).getContext('2d');
-                data = {
-                  datasets: [{
-                      data: [],
-                      backgroundColor: ["#333", "#0074D9", "#FF4136", "#2ECC40", "#FF851B", "#7FDBFF", "#B10DC9", "#FFDC00", "#001f3f", "#39CCCC", "#01FF70", "#85144b", "#F012BE", "#3D9970", "#111111", "#AAAAAA"]
-                  }],
-                  labels: [ ]
-              };
-              for (var o = res.result.Requests.length - 1; o >= 0; o--) {
-                 var req = res.result.Requests[o];
-                 var indexofcode = data.labels.indexOf(`Code: ${req.Code}`);
-                 if (indexofcode == -1){
-                    data.labels.push(`Code: ${req.Code}`)
-                    data.datasets[0].data.push(1)
-                 } else {
-                    data.datasets[0].data[indexofcode]++;
-                 }
-              }
-              console.log(data);
+          setTimeout(function(server){
+            GetLog(server,function(res){
+              if(res.result){
+                var ctx = document.getElementById(server.ID).getContext('2d');
+                  data = {
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ["#333", "#0074D9", "#FF4136", "#2ECC40", "#FF851B", "#7FDBFF", "#B10DC9", "#FFDC00", "#001f3f", "#39CCCC", "#01FF70", "#85144b", "#F012BE", "#3D9970", "#111111", "#AAAAAA"]
+                    }],
+                    labels: [ ]
+                };
+                for (var o = res.result.Requests.length - 1; o >= 0; o--) {
+                   var req = res.result.Requests[o];
+                   var indexofcode = data.labels.indexOf(`Code: ${req.Code}`);
+                   if (indexofcode == -1){
+                      data.labels.push(`Code: ${req.Code}`)
+                      data.datasets[0].data.push(1)
+                   } else {
+                      data.datasets[0].data[indexofcode]++;
+                   }
+                }
 
-                 var myDoughnutChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: data,
-                    options: {}
-                });
-            }
-          })  
+                var myDoughnutChart = new Chart(ctx, {
+                      type: 'doughnut',
+                      data: data,
+                      options: {}
+                  });
+              }
+            }) 
+        }, (200 * i),server);
         }
        
     }
