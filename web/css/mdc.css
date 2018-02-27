@@ -22,6 +22,11 @@ a.mdc-button:focus{
 	text-decoration: none !important;
 }
 
+.mdc-drawer .mdc-list-divider {
+	    margin-top: 55px;
+    margin-bottom: 25px;
+}
+
 
 .mdc-tab-bar a:hover,
 .mdc-tab-bar a:focus {

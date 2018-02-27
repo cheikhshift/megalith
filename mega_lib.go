@@ -15,8 +15,13 @@ import (
 	"time"
 )
 
-var ContentJson = "application/json"
-var TwFormat = "%s%s"
+func MegaTimer(ticker *time.Ticker) {
+	for t := range ticker.C {
+
+		go Pulse()
+		log.Println("Beat at", t)
+	}
+}
 
 func SendEmail(subject, body, to string) error {
 
@@ -107,10 +112,20 @@ func Pulse() {
 	GL.Lock.Unlock()
 }
 
+func ShouldDeleteLog(server string) {
+	now := time.Now().Unix()
+	if Config.Misc.ResetInterval == 0 {
+		return
+	}
+	if (now - Config.LastReset) > (DayInSeconds * Config.Misc.ResetInterval) {
+		DeleteLog(server)
+	}
+}
+
 func Process(server Server, servIndex int) {
 	if server.Live {
 		logcurrent := RequestLog{}
-
+		ShouldDeleteLog(server.ID)
 		LoadLog(server.ID, &logcurrent)
 
 		for _, endpointCheck := range server.Endpoints {

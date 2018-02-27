@@ -3,7 +3,7 @@ app.controller('servers', ['$scope', function($scope) {
     $scope.loading = false;
     $scope.sserver = false;
     $scope.sendpoint = false;
-     $scope.round = rndFunc;
+    $scope.round = rndFunc;
    
 
     $scope.addServer = function() {

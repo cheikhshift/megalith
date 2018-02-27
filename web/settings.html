@@ -38,6 +38,7 @@
                 <a class="mdc-list-item" href="/contacts">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
+       <hr class="mdc-list-divider ">
                 <a class="mdc-list-item mdc-list-item--activated" href="/settings">
           <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
        </a>
@@ -79,6 +80,9 @@
   </a>
             <a class="mdc-tab" href="#" ng-click="selected = 1">
     <i class="material-icons mdc-tab__icon" aria-label="Favorites">phone</i> Twilio
+  </a>
+  <a class="mdc-tab" href="#" ng-click="selected = 2">
+    <i class="material-icons mdc-tab__icon" aria-label="Favorites">settings</i> Misc.
   </a>
  
             <span class="mdc-tab-bar__indicator"></span>
@@ -127,6 +131,19 @@
                 <button ng-click="updateTw()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
             </div>
         </div>
+
+         <div ng-show="selected == 2" class="mdc-list-group full-height list-group--custom">
+            <div class="mdc-list-group__subheader">
+           
+                <hr class="mdc-list-divider">
+                <br>
+                <label>Uptime log reset interval (in days)</label>
+                <input type="number" placeholder="..." ng-model="mega.Misc.ResetInterval" class="form-control">
+               <br >
+                <button ng-click="updateSettings()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
+            </div>
+        </div>
+
     </div>
     <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
         <div class="mdc-snackbar__text"></div>

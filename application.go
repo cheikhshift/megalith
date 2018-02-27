@@ -35,7 +35,7 @@ var TemplateFuncStore template.FuncMap
 var templateCache = gosweb.NewTemplateCache()
 
 func StoreNetfn() int {
-	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery, "MegaConfig": NetstructMegaConfig, "isMegaConfig": NetcastMegaConfig, "TrLock": NetstructTrLock, "isTrLock": NetcastTrLock, "Server": NetstructServer, "isServer": NetcastServer, "Endpoint": NetstructEndpoint, "isEndpoint": NetcastEndpoint, "RequestLog": NetstructRequestLog, "isRequestLog": NetcastRequestLog, "Request": NetstructRequest, "isRequest": NetcastRequest, "Contact": NetstructContact, "isContact": NetcastContact, "MailSettings": NetstructMailSettings, "isMailSettings": NetcastMailSettings, "Clock": NetstructClock, "isClock": NetcastClock, "TwilioInfo": NetstructTwilioInfo, "isTwilioInfo": NetcastTwilioInfo}
+	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "USetting": NetUSetting, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery, "MegaConfig": NetstructMegaConfig, "isMegaConfig": NetcastMegaConfig, "TrLock": NetstructTrLock, "isTrLock": NetcastTrLock, "Server": NetstructServer, "isServer": NetcastServer, "Endpoint": NetstructEndpoint, "isEndpoint": NetcastEndpoint, "RequestLog": NetstructRequestLog, "isRequestLog": NetcastRequestLog, "Request": NetstructRequest, "isRequest": NetcastRequest, "Contact": NetstructContact, "isContact": NetcastContact, "MailSettings": NetstructMailSettings, "isMailSettings": NetcastMailSettings, "Settings": NetstructSettings, "isSettings": NetcastSettings, "Clock": NetstructClock, "isClock": NetcastClock, "TwilioInfo": NetstructTwilioInfo, "isTwilioInfo": NetcastTwilioInfo}
 	return 0
 }
 
@@ -543,11 +543,13 @@ func init() {
 }
 
 type MegaConfig struct {
-	Mail     MailSettings
-	Servers  []Server
-	Cl       Clock
-	Contacts []Contact
-	SMS      TwilioInfo
+	Mail      MailSettings
+	Servers   []Server
+	Cl        Clock
+	Contacts  []Contact
+	SMS       TwilioInfo
+	Misc      Settings
+	LastReset int64
 }
 
 func NetcastMegaConfig(args ...interface{}) *MegaConfig {
@@ -733,6 +735,28 @@ func NetcastMailSettings(args ...interface{}) *MailSettings {
 }
 func NetstructMailSettings() *MailSettings { return &MailSettings{} }
 
+type Settings struct {
+	ResetInterval int64
+}
+
+func NetcastSettings(args ...interface{}) *Settings {
+
+	s := Settings{}
+	mapp := args[0].(db.O)
+	if _, ok := mapp["_id"]; ok {
+		mapp["Id"] = mapp["_id"]
+	}
+	data, _ := json.Marshal(&mapp)
+
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	return &s
+}
+func NetstructSettings() *Settings { return &Settings{} }
+
 type Clock struct {
 	Interval int
 }
@@ -896,6 +920,16 @@ func NetUMail(req MailSettings) (result bool) {
 func NetUTw(req TwilioInfo) (result bool) {
 
 	Config.SMS = req
+	SaveConfig(Config)
+	return true
+
+}
+
+//
+func NetUSetting(req Settings) (result bool) {
+
+	Config.Misc = req
+	Config.LastReset = time.Now().Unix()
 	SaveConfig(Config)
 	return true
 
@@ -1288,12 +1322,7 @@ func main() {
 
 	// Mega monitor timer
 	ticker := time.NewTicker(Checkinterval * time.Minute)
-	go func() {
-		for t := range ticker.C {
-			go Pulse()
-			fmt.Println("Beat at", t)
-		}
-	}()
+	go MegaTimer(ticker)
 
 	//psss go code here : func main()
 	store.Options = &sessions.Options{
@@ -1393,6 +1422,12 @@ function UTw(Req , cb){
 	
 	t.Req = Req
 	jsrequestmomentum("/momentum/funcs?name=UTw", t, "POSTJSON", cb)
+}
+function USetting(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=USetting", t, "POSTJSON", cb)
 }
 `))
 	})
@@ -1576,6 +1611,24 @@ function UTw(Req , cb){
 			}
 			resp := db.O{}
 			respresult0 := NetUTw(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "USetting" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadUSetting struct {
+				Req Settings
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadUSetting
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetUSetting(tmvv.Req)
 
 			resp["result"] = respresult0
 			w.Write([]byte(mResponse(resp)))

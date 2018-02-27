@@ -4,6 +4,10 @@ import "time"
 
 var megaWorkspace string = "megaWorkSpace/"
 
+var ContentJson = "application/json"
+var TwFormat = "%s%s"
+var DayInSeconds int64 = 86400
+
 var configName string = "settings.json"
 var logDirectory string = "logDirectory"
 

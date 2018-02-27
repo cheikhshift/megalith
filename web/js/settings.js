@@ -15,10 +15,14 @@ app.controller('Settings', ['$scope', function($scope) {
     Mega(MegaCB.bind($scope));
 
     $scope.updateMail = () => {
-        UMail($scope.mega.Mail, SavvedSetting.bind($scope))
+        UMail($scope.mega.Mail, SavvedSetting)
     }
 
     $scope.updateTw = () => {
-        UTw($scope.mega.SMS, SavvedSetting.bind($scope))
+        UTw($scope.mega.SMS, SavvedSetting)
+    }
+
+    $scope.updateSettings = () => {
+        USetting($scope.mega.Misc, SavvedSetting )
     }
 }]);

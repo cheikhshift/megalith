@@ -59,12 +59,7 @@
 
     	// Mega monitor timer
     	 ticker := time.NewTicker(Checkinterval * time.Minute)
-	     go func() {
-	        for t := range ticker.C {
-	        	go Pulse()
-	            fmt.Println("Beat at", t)
-	        }
-	     }()
+	     go MegaTimer(ticker)
 
 	</main>
 
@@ -78,6 +73,8 @@
 		 	Cl Clock
 		 	Contacts []Contact
 		 	SMS TwilioInfo
+		 	Misc Settings
+		 	LastReset int64
 		</struct>
 		<struct name="TrLock">
 		 	Lock  *sync.RWMutex
@@ -110,6 +107,9 @@
 		</struct>
 		<struct name="MailSettings">
 		 	Email,Password,Host,Port string
+		</struct>
+		<struct name="Settings">
+		 	ResetInterval int64
 		</struct>
 		<struct name="Clock">
 		 	Interval int
@@ -200,6 +200,12 @@
 
 			<func name="UTw" var="req TwilioInfo" return="(result bool)">
 				Config.SMS = req
+				SaveConfig(Config);
+				return true
+			</func>
+			<func name="USetting" var="req Settings" return="(result bool)">
+				Config.Misc = req
+				Config.LastReset = time.Now().Unix()
 				SaveConfig(Config);
 				return true
 			</func>
