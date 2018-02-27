@@ -109,7 +109,7 @@ func Pulse() {
 	if Config.Servers != nil {
 		for servIndex, server := range Config.Servers {
 			if server.Live {
-				Process(server, servIndex)
+				go Process(server, servIndex)
 			}
 		}
 	}
@@ -168,7 +168,7 @@ func Process(server Server, servIndex int) {
 	GL.Lock.Lock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
 	GL.Lock.Unlock()
-	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail )
+	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail)
 	go SaveConfig(&Config)
 
 }
@@ -178,7 +178,7 @@ func Notify(server Server, contacts []Contact, mailcfg MailSettings) {
 		for _, contact := range contacts {
 			if inArr(contact.Watching, server.ID) && contact.Threshold > (server.Uptime*100) {
 				if contact.Email != "" {
-					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email,mailcfg)
+					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email, mailcfg)
 					if err != nil {
 						log.Println(err)
 					}
