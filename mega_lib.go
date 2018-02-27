@@ -43,12 +43,15 @@ func SendEmail(subject, body, to string) error {
 }
 
 func SaveConfig(v interface{}) error {
+	GL.Lock.Lock()
 	str := mResponse(v)
 	pathoffile := filepath.Join(megaWorkspace, configName)
 	strbytes := []byte(str)
 	err := ioutil.WriteFile(pathoffile, strbytes, 0700)
 	strbytes = nil
+	GL.Lock.Unlock()
 	return err
+
 }
 
 func inArr(arr []string, lookup string) (res bool) {
@@ -75,7 +78,7 @@ func SaveLog(name string, v interface{}) error {
 }
 
 func LoadConfig(targ interface{}) error {
-
+	GL.Lock.Lock()
 	pathoffile := filepath.Join(megaWorkspace, configName)
 
 	data, err := ioutil.ReadFile(pathoffile)
@@ -85,6 +88,7 @@ func LoadConfig(targ interface{}) error {
 	strdata := string(data)
 	bts := []byte(strdata)
 	err = json.Unmarshal(bts, targ)
+	GL.Lock.Unlock()
 	return err
 }
 

@@ -2,7 +2,7 @@ package main
 
 import "time"
 
-var megaWorkspace string = "megaWorkSpace/"
+var megaWorkspace string = "megaWorkSpace"
 
 var ContentJson = "application/json"
 var TwFormat = "%s%s"

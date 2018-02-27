@@ -19,6 +19,7 @@
 	<import src="path/filepath"/>
 	<import src="github.com/cheikhshift/gos/core"/>
 	<main>	
+		
 		Windows := strings.Contains(runtime.GOOS, "windows") 
 		if  Windows {
 				os.Chdir( os.ExpandEnv("$USERPROFILE") )
@@ -27,6 +28,8 @@
 		}
 
 		
+		GL = TrLock{Lock: new (sync.RWMutex)}
+
 
 		if  _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
 			err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory),0700)
@@ -34,7 +37,7 @@
 				panic(err)
 			}
 			Config = &MegaConfig{}
-			SaveConfig(Config)
+			SaveConfig(&Config)
 		} else {
 			err = LoadConfig(&Config)
 			if err != nil {
@@ -43,7 +46,7 @@
 
 		}
 
-		GL = TrLock{Lock: new (sync.RWMutex)}
+		
 
 		if Prod {
 			if  !Windows {
@@ -129,7 +132,7 @@
 				genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)
 				ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}
 				Config.Servers = append(Config.Servers, ns)
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return Config.Servers
 			</func>
 
@@ -142,7 +145,7 @@
 				}
 				DeleteLog(req.ID)
 				Config.Servers = result
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UServer" var="req Server" return="(result bool)">
@@ -151,7 +154,7 @@
 						Config.Servers[index] = req
 					}
 				}
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return true
 			</func>
 
@@ -160,7 +163,7 @@
 			
 				nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}
 				Config.Contacts = append(Config.Contacts, nc)
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return Config.Contacts
 			</func>
 
@@ -178,7 +181,7 @@
 					}
 				}
 				Config.Contacts = result
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UContact" var="req Contact" return="(result bool)">
@@ -187,26 +190,26 @@
 						Config.Contacts[index] = req
 					}
 				}
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return true
 			</func>
 
 			<!-- setting funcs -->
 			<func name="UMail" var="req MailSettings" return="(result bool)">
 				Config.Mail = req
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return true
 			</func>
 
 			<func name="UTw" var="req TwilioInfo" return="(result bool)">
 				Config.SMS = req
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return true
 			</func>
 			<func name="USetting" var="req Settings" return="(result bool)">
 				Config.Misc = req
 				Config.LastReset = time.Now().Unix()
-				SaveConfig(Config);
+				SaveConfig(&Config);
 				return true
 			</func>
 	</methods>

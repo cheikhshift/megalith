@@ -2,6 +2,7 @@ package main
 
 import (
 	gosweb "github.com/cheikhshift/gos/web"
+	_ "net/http/pprof"
 	//iogos-replace
 	"bytes"
 	"encoding/json"
@@ -13,15 +14,21 @@ import (
 	"github.com/fatih/color"
 	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
+	"github.com/opentracing/opentracing-go"
 	"html"
 	"html/template"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sourcegraph.com/sourcegraph/appdash"
+	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
+	"sourcegraph.com/sourcegraph/appdash/traceapp"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +36,7 @@ import (
 
 var store = sessions.NewCookieStore([]byte("a very very very very secret key"))
 
-var Prod = true
+var Prod = false
 
 var TemplateFuncStore template.FuncMap
 var templateCache = gosweb.NewTemplateCache()
@@ -43,7 +50,7 @@ var FuncStored = StoreNetfn()
 
 type dbflf db.O
 
-func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
+func renderTemplate(w http.ResponseWriter, p *gosweb.Page, span opentracing.Span) {
 	defer func() {
 		if n := recover(); n != nil {
 			color.Red(fmt.Sprintf("Error loading template in path : web%s.tmpl reason : %s", p.R.URL.Path, n))
@@ -63,11 +70,25 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 			} else {
 				pag.R = p.R
 				pag.Session = p.Session
-				renderTemplate(w, pag) ///your-500-page"
+				renderTemplate(w, pag, span) ///your-500-page"
 
 			}
 		}
 	}()
+
+	var sp opentracing.Span
+	opName := fmt.Sprintf("Building template %s%s", p.R.URL.Path, ".tmpl")
+
+	if true {
+		carrier := opentracing.HTTPHeadersCarrier(p.R.Header)
+		wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+		if err != nil {
+			sp = opentracing.StartSpan(opName)
+		} else {
+			sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+		}
+	}
+	defer sp.Finish()
 
 	// TemplateFuncStore
 
@@ -99,7 +120,7 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 		if pag.IsResource {
 			w.Write(pag.Body)
 		} else {
-			renderTemplate(w, pag) // "/your-500-page"
+			renderTemplate(w, pag, span) // "/your-500-page"
 
 		}
 		return
@@ -118,11 +139,18 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 // this http.HandlerFunc.
 // Use MakeHandler(http.HandlerFunc) to serve your web
 // directory from memory.
-func MakeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+func MakeHandler(fn func(http.ResponseWriter, *http.Request, opentracing.Span)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		if attmpt := apiAttempt(w, r); !attmpt {
-			fn(w, r)
+		span := opentracing.StartSpan(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
+		defer span.Finish()
+		carrier := opentracing.HTTPHeadersCarrier(r.Header)
+		if err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier); err != nil {
+			log.Fatalf("Could not inject span context into header: %v", err)
+		}
+
+		if attmpt := apiAttempt(w, r, span); !attmpt {
+			fn(w, r, span)
 		}
 		context.Clear(r)
 
@@ -133,7 +161,7 @@ func mResponse(v interface{}) string {
 	data, _ := json.Marshal(&v)
 	return string(data)
 }
-func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
+func apiAttempt(w http.ResponseWriter, r *http.Request, span opentracing.Span) (callmet bool) {
 	var response string
 	response = ""
 	var session *sessions.Session
@@ -398,7 +426,7 @@ func DebugTemplatePath(tmpl string, intrf interface{}) {
 	}
 
 }
-func Handler(w http.ResponseWriter, r *http.Request) {
+func Handler(w http.ResponseWriter, r *http.Request, span opentracing.Span) {
 	var p *gosweb.Page
 	p, err := loadPage(r.URL.Path)
 	var session *sessions.Session
@@ -407,11 +435,26 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		session, _ = store.New(r, "session-")
 	}
 
+	var sp opentracing.Span
+	opName := fmt.Sprintf(fmt.Sprintf("Web:/%s", r.URL.Path))
+
+	if true {
+		carrier := opentracing.HTTPHeadersCarrier(r.Header)
+		wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+		if err != nil {
+			sp = opentracing.StartSpan(opName)
+		} else {
+			sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+		}
+	}
+	defer sp.Finish()
+
 	if err != nil {
 		log.Println(err.Error())
 
 		w.WriteHeader(http.StatusNotFound)
-
+		span.SetTag("error", true)
+		span.LogEvent(fmt.Sprintf("%s request at %s, reason : %s ", r.Method, r.URL.Path, err))
 		pag, err := loadPage("/your-404-page")
 
 		if err != nil {
@@ -431,7 +474,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		if pag.IsResource {
 			w.Write(pag.Body)
 		} else {
-			renderTemplate(w, pag) //"/your-500-page"
+			renderTemplate(w, pag, span) //"/your-500-page"
 		}
 		session = nil
 		context.Clear(r)
@@ -442,7 +485,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		p.Session = session
 		p.R = r
-		renderTemplate(w, p) //fmt.Sprintf("web%s", r.URL.Path)
+		renderTemplate(w, p, span) //fmt.Sprintf("web%s", r.URL.Path)
 		session.Save(r, w)
 		// log.Println(w)
 	} else {
@@ -470,10 +513,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 var WebCache = gosweb.NewCache()
 
 func loadPage(title string) (*gosweb.Page, error) {
-
-	if lPage, ok := WebCache.Get(title); ok {
-		return &lPage, nil
-	}
 
 	var nPage = gosweb.Page{}
 	if roottitle := (title == "/"); roottitle {
@@ -532,6 +571,8 @@ func loadPage(title string) (*gosweb.Page, error) {
 		body = nil
 		return &nPage, nil
 	}
+
+	//wheredefault
 
 }
 
@@ -804,135 +845,291 @@ func NetstructTwilioInfo() *TwilioInfo { return &TwilioInfo{} }
 //
 func NetLoadWebAsset(args ...interface{}) string {
 
-	data, err := Asset(fmt.Sprintf("web%s", args[0].(string)))
-	if err != nil {
-		return err.Error()
-	}
-	return string(data)
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `data,err := Asset( fmt.Sprintf("web%s", args[0].(string) ) )`
+	data, err := Asset(fmt.Sprintf("web%s", args[0].(string)))
+	lastLine = `if err != nil {`
+	if err != nil {
+		lastLine = `return err.Error()`
+		return err.Error()
+		lastLine = `}`
+	}
+	lastLine = `return string(data)`
+	return string(data)
 }
 
 //
 func NetMega() (result *MegaConfig) {
 
-	return Config
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `return Config`
+	return Config
 }
 
 //
 func NetAddServer() (result []Server) {
 
-	randint := rand.Intn(200) + 50
-	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
-	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
-	Config.Servers = append(Config.Servers, ns)
-	SaveConfig(Config)
-	return Config.Servers
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `randint := rand.Intn(200) + 50`
+	randint := rand.Intn(200) + 50
+	lastLine = `genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)`
+	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
+	lastLine = `ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}`
+	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
+	lastLine = `Config.Servers = append(Config.Servers, ns)`
+	Config.Servers = append(Config.Servers, ns)
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return Config.Servers`
+	return Config.Servers
 }
 
 //
 func NetDServer(req Server) (result []Server) {
 
-	result = []Server{}
-	for _, target := range Config.Servers {
-		if target.ID != req.ID {
-			result = append(result, target)
-		}
-	}
-	DeleteLog(req.ID)
-	Config.Servers = result
-	SaveConfig(Config)
-	return
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `result = []Server{}`
+	result = []Server{}
+	lastLine = `for _,target := range Config.Servers {`
+	for _, target := range Config.Servers {
+		lastLine = `if target.ID != req.ID {`
+		if target.ID != req.ID {
+			lastLine = `result = append(result, target)`
+			result = append(result, target)
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `DeleteLog(req.ID)`
+	DeleteLog(req.ID)
+	lastLine = `Config.Servers = result`
+	Config.Servers = result
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return`
+	return
 }
 
 //
 func NetUServer(req Server) (result bool) {
 
-	for index, target := range Config.Servers {
-		if target.ID == req.ID {
-			Config.Servers[index] = req
-		}
-	}
-	SaveConfig(Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `for index,target := range Config.Servers {`
+	for index, target := range Config.Servers {
+		lastLine = `if target.ID == req.ID {`
+		if target.ID == req.ID {
+			lastLine = `Config.Servers[index] = req`
+			Config.Servers[index] = req
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetAddContact() (result []Contact) {
 
-	nc := Contact{ID: core.NewLen(20), Nickname: "New contact"}
-	Config.Contacts = append(Config.Contacts, nc)
-	SaveConfig(Config)
-	return Config.Contacts
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}`
+	nc := Contact{ID: core.NewLen(20), Nickname: "New contact"}
+	lastLine = `Config.Contacts = append(Config.Contacts, nc)`
+	Config.Contacts = append(Config.Contacts, nc)
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return Config.Contacts`
+	return Config.Contacts
 }
 
 //
 func NetGetLog(req Server) (result RequestLog) {
 
+	lastLine := ""
+
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `LoadLog(req.ID, &result)`
 	LoadLog(req.ID, &result)
-
+	lastLine = `return`
 	return
-
 }
 
 //
 func NetDContact(req Contact) (result []Contact) {
 
-	result = []Contact{}
-	for _, target := range Config.Contacts {
-		if target.ID != req.ID {
-			result = append(result, target)
-		}
-	}
-	Config.Contacts = result
-	SaveConfig(Config)
-	return
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `result = []Contact{}`
+	result = []Contact{}
+	lastLine = `for _,target := range Config.Contacts {`
+	for _, target := range Config.Contacts {
+		lastLine = `if target.ID != req.ID {`
+		if target.ID != req.ID {
+			lastLine = `result = append(result, target)`
+			result = append(result, target)
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `Config.Contacts = result`
+	Config.Contacts = result
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return`
+	return
 }
 
 //
 func NetUContact(req Contact) (result bool) {
 
-	for index, target := range Config.Contacts {
-		if target.ID == req.ID {
-			Config.Contacts[index] = req
-		}
-	}
-	SaveConfig(Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `for index,target := range Config.Contacts {`
+	for index, target := range Config.Contacts {
+		lastLine = `if target.ID == req.ID {`
+		if target.ID == req.ID {
+			lastLine = `Config.Contacts[index] = req`
+			Config.Contacts[index] = req
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUMail(req MailSettings) (result bool) {
 
-	Config.Mail = req
-	SaveConfig(Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `Config.Mail = req`
+	Config.Mail = req
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUTw(req TwilioInfo) (result bool) {
 
-	Config.SMS = req
-	SaveConfig(Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `Config.SMS = req`
+	Config.SMS = req
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUSetting(req Settings) (result bool) {
 
-	Config.Misc = req
-	Config.LastReset = time.Now().Unix()
-	SaveConfig(Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `Config.Misc = req`
+	Config.Misc = req
+	lastLine = `Config.LastReset = time.Now().Unix()`
+	Config.LastReset = time.Now().Unix()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 func templateFNang(localid string, d interface{}) {
@@ -1291,13 +1488,15 @@ func main() {
 		os.Chdir(os.ExpandEnv("$HOME"))
 	}
 
+	GL = TrLock{Lock: new(sync.RWMutex)}
+
 	if _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
 		err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory), 0700)
 		if err != nil {
 			panic(err)
 		}
 		Config = &MegaConfig{}
-		SaveConfig(Config)
+		SaveConfig(&Config)
 	} else {
 		err = LoadConfig(&Config)
 		if err != nil {
@@ -1305,8 +1504,6 @@ func main() {
 		}
 
 	}
-
-	GL = TrLock{Lock: new(sync.RWMutex)}
 
 	if Prod {
 		if !Windows {
@@ -1325,13 +1522,43 @@ func main() {
 	go MegaTimer(ticker)
 
 	//psss go code here : func main()
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 7,
-		HttpOnly: true,
-		Secure:   true,
-		Domain:   "",
+	store := appdash.NewMemoryStore()
+
+	// Listen on any available TCP port locally.
+	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		log.Fatal(err)
 	}
+	collectorPort := l.Addr().(*net.TCPAddr).Port
+
+	// Start an Appdash collection server that will listen for spans and
+	// annotations and add them to the local collector (stored in-memory).
+	cs := appdash.NewServer(l, appdash.NewLocalCollector(store))
+	go cs.Start()
+
+	// Print the URL at which the web UI will be running.
+	appdashPort := 8700
+	appdashURLStr := fmt.Sprintf("http://localhost:%d", appdashPort)
+	appdashURL, err := url.Parse(appdashURLStr)
+	if err != nil {
+		log.Fatalf("Error parsing %s: %s", appdashURLStr, err)
+	}
+	color.Red("✅ Important!")
+	log.Println("To see your traces, go to ", appdashURL)
+
+	// Start the web UI in a separate goroutine.
+	tapp, err := traceapp.New(nil, appdashURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tapp.Store = store
+	tapp.Queryer = store
+	go func() {
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", appdashPort), tapp))
+	}()
+
+	tracer := appdashot.NewTracer(appdash.NewRemoteCollector(fmt.Sprintf(":%d", collectorPort)))
+	opentracing.InitGlobalTracer(tracer)
 
 	port := ":9001"
 	if envport := os.ExpandEnv("$PORT"); envport != "" {
