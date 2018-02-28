@@ -15,17 +15,13 @@ func Req(server Server, endpoint Endpoint) int {
 	tr = &http.Transport{}
 
 	tr.ResponseHeaderTimeout = endpoint.Timeout * time.Second
-	//tr.Dial = endpoint.Timeout * time.Second
 
-	// wrap parameters around bson.M map under
-	// key `req`
 	requestBodyReader := strings.NewReader(endpoint.Data)
 	req, _ := http.NewRequest(endpoint.Method, _u, requestBodyReader)
-	sets := strings.Split(endpoint.Headers, "\n")
+	sets := strings.Split(endpoint.Headers, NewLine)
 
-	//Split incoming header string by \n and build header pairs
 	for i := range sets {
-		split := strings.SplitN(sets[i], ":", 2)
+		split := strings.SplitN(sets[i], HeaderSeparator, 2)
 		if len(split) == 2 {
 			req.Header.Set(split[0], split[1])
 		}
@@ -34,7 +30,7 @@ func Req(server Server, endpoint Endpoint) int {
 	resp, err := client.Do(req)
 	var ert int
 	if err != nil {
-		ert = 900
+		ert = NetworkAccessErrorCode
 		log.Println(err)
 	} else {
 		ert = resp.StatusCode

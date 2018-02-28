@@ -1,4 +1,4 @@
-package main 
+package main
 
 import (
 	"encoding/json"
@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 )
-
-
 
 //Config functions
 func SaveConfig(v interface{}) error {
@@ -36,7 +34,6 @@ func LoadConfig(targ interface{}) error {
 	return err
 }
 
-
 // Server request log functions
 func SaveLog(name string, v interface{}) error {
 	str := mResponse(v)
@@ -60,7 +57,6 @@ func LoadLog(name string, targ interface{}) error {
 	err = json.Unmarshal(bts, targ)
 	return err
 }
-
 
 func DeleteLog(name string) {
 	pathoffile := filepath.Join(megaWorkspace, logDirectory, name)

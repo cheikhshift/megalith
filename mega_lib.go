@@ -11,8 +11,7 @@ func inArr(arr []string, lookup string) (res bool) {
 	return
 }
 
-
-//Verify if the last time your 
+//Verify if the last time your
 // logs were reset
 // exceeds the set period and delete the server's.
 // request log.
@@ -25,4 +24,3 @@ func ShouldDeleteLog(server string) {
 		DeleteLog(server)
 	}
 }
-

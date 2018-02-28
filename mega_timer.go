@@ -7,7 +7,7 @@ import (
 
 func MegaTimer(ticker *time.Ticker) {
 	for t := range ticker.C {
-		log.Println("Beat at ", t)
+		log.Println(BeatAt, t)
 		go Pulse()
 	}
 }
