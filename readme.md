@@ -34,3 +34,7 @@ Run the following command to launch application :
 ![enter image description here](screens/2.png)
 ![enter image description here](screens/3.png)
 ![enter image description here](screens/4.png)
+
+#### Location of configuration file
+- On Windows assume your default workspace directory to be %USERPROFILE%/megaWorkSpace
+- On Unix/Linux assume your default workspace directory to be $HOME/megaWorkSpace
