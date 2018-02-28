@@ -61,7 +61,7 @@
     	}
 
     	// Mega monitor timer
-    	 ticker := time.NewTicker(Checkinterval * time.Minute)
+    	 ticker := time.NewTicker(Checkinterval)
 	     go MegaTimer(ticker)
 
 	</main>

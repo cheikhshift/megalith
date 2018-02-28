@@ -1343,7 +1343,7 @@ func main() {
 	}
 
 	// Mega monitor timer
-	ticker := time.NewTicker(Checkinterval * time.Minute)
+	ticker := time.NewTicker(Checkinterval)
 	go MegaTimer(ticker)
 
 	//psss go code here : func main()
