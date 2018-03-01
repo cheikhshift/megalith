@@ -825,7 +825,7 @@ func NetMega() (result *MegaConfig) {
 func NetAddServer() (result []Server) {
 
 	GL.Lock.Lock()
-	randint := rand.Intn(200) + 50
+	randint := rand.Intn(200) + 50 + len(Config.Servers)
 	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
 	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
 	Config.Servers = append(Config.Servers, ns)
