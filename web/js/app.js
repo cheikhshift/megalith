@@ -43,7 +43,7 @@ function MegaCB(data) {
 }
 
 function disconn() {
-    alert("Megalith is down!!!");
+    Snackbar("Megalith is down!!!");
 }
 
 function rndFunc(val) {
@@ -109,7 +109,7 @@ app.controller('dashboard', ['$scope', function($scope) {
 
 function jsrequestmomentum(url, payload, type, callback) {
     var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
+    xhttp.onreadystatechange = () => {
         if (xhttp.readyState == 4) {
             var success = (xhttp.status == 200)
             if (type == "POSTJSON") {
@@ -124,7 +124,7 @@ function jsrequestmomentum(url, payload, type, callback) {
         }
     };
 
-    var serialize = function(obj) {
+    var serialize = (obj) => {
         var str = [];
         for (var p in obj)
             if (obj.hasOwnProperty(p)) {
