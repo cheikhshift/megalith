@@ -68,6 +68,7 @@
         </div>
         <div class="row full-height">
             <div class="col-3 full-height">
+            <p style="padding: 10px;margin-bottom: 5px;"><input type="text" placeholder="Filter by server nickname" class="form-control" ng-model="search.text"></p>
                 <ul class="mdc-list mdc-list--two-line mdc-list--avatar-list">
                     <li ng-show="(mega.Servers.length == 0 || !mega.Servers) && !loading " ng-click="addServer()" class="mdc-list-item">
                         <span class="mdc-list-item__graphic" role="presentation">
@@ -80,7 +81,7 @@
                    
                         </span>
                     </li>
-                    <li ng-repeat="server in mega.Servers" ng-click="editServer(server)" ng-class="{'mdc-list-item--activated': (server == sserver)}" class="mdc-list-item">
+                    <li  ng-repeat="server in mega.Servers" ng-show="server.Nickname.toLowerCase().includes(search.text.toLowerCase()) || !search.text" ng-click="editServer(server)" ng-class="{'mdc-list-item--activated': (server == sserver)}" class="mdc-list-item">
                         <span class="mdc-list-item__graphic" role="presentation">
                    <img src="{{ server.Image }}">
                   </span>

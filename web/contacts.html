@@ -69,7 +69,7 @@
 </div>
         <div class="row full-height">
             <div class="col-3 full-height">
-
+               <p style="padding: 10px;margin-bottom: 5px;"><input type="text" placeholder="Filter by contact nickname" class="form-control" ng-model="search.text"></p>
                 <ul class="mdc-list  mdc-list--avatar-list">
                  <li ng-show="(mega.Contacts.length == 0 || !mega.Contacts) && !loading " ng-click="addContact()" class="mdc-list-item">
                         <span class="mdc-list-item__graphic" role="presentation">
@@ -82,7 +82,7 @@
                    
                         </span>
                     </li>
-                    <li ng-repeat="contact in mega.Contacts" ng-click="editContact(contact)"ng-class="{'mdc-list-item--activated': (contact == scontact)}" class="mdc-list-item">
+                    <li  ng-repeat="contact in mega.Contacts" ng-show="contact.Nickname.toLowerCase().includes(search.text.toLowerCase())  || !search.text" ng-click="editContact(contact)"ng-class="{'mdc-list-item--activated': (contact == scontact)}" class="mdc-list-item">
                         <span class="mdc-list-item__graphic" role="presentation">
                    <i class="material-icons">person</i>
                   </span>

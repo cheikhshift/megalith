@@ -4,7 +4,7 @@ app.controller('servers', ['$scope', function($scope) {
     $scope.sserver = false;
     $scope.sendpoint = false;
     $scope.round = rndFunc;
-   
+
 
     $scope.addServer = function() {
         AddServer(function(data) {
@@ -21,7 +21,7 @@ app.controller('servers', ['$scope', function($scope) {
         $scope.sendpoint = false;
     }
 
-     $scope.editServerInt = function(server) {
+    $scope.editServerInt = function(server) {
         $scope.sserver = $scope.mega.Servers[server];
         $scope.sendpoint = false;
     }
@@ -61,6 +61,7 @@ app.controller('servers', ['$scope', function($scope) {
         Snackbar("Endpoint removed!");
     }
 
-     Mega(MegaCB.bind($scope));
+    Mega(MegaCB.bind($scope));
+    
 
 }])
