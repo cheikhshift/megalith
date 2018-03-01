@@ -142,6 +142,13 @@ func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
 		session, _ = store.New(r, "session-")
 	}
 
+	if strings.Contains(r.URL.Path, "/") {
+
+		if strings.Contains(r.URL.Path, ".map") || strings.Contains(r.URL.Path, "web/{{ server.Image }}") {
+			return true
+		}
+
+	}
 	if r.Method == "RESET" {
 		return true
 	}
