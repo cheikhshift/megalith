@@ -13,56 +13,47 @@
 	<var type="TrLock">GL</var>
 	<import src="github.com/cheikhshift/momentum/gos.gxml"/>
 	<import src="strings"/>
-	<import src="runtime"/>
 	<import src="math/rand"/>
 	<import src="sync"/>
-	<import src="path/filepath"/>
 	<import src="github.com/cheikhshift/gos/core"/>
+	<import src="flag"/>
+	<import src="os"/>
 	<main>	
 		
-		Windows := strings.Contains(runtime.GOOS, "windows") 
-		if  Windows {
-				os.Chdir( os.ExpandEnv("$USERPROFILE") )
-		} else {
-				os.Chdir( os.ExpandEnv("$HOME") )
-		}
+	 	nobrowser := flag.Bool("nobrowser", false, "Launch without openning browser")
+	 	worker := flag.Bool("worker", false, "Launch megalith instance as worker")
+	 	dispaddr := flag.String("dispatcher", DefaultAddress, "Host name of dispatcher instance. Add port number as needed. ie hostname:9000")
+	 	workaddr := flag.String("hostname", DefaultAddress, "Host name of worker instance. Add port number as needed. ie hostname:9000")
+	 	portNumber := flag.String("port", "9001", "The port number megalith will to listen on") 
+	 	fws := flag.String("workspace", "megaWorkSpace", "Set instance directory") 
 
-		
+	    flag.Parse()
+	 	WorkerMode = *worker
+	 	DispatcherAddressPort = *dispaddr
+	 	WorkerAddressPort = *workaddr
+	 	megaWorkspace = *fws
+	 	os.Setenv(PORT, *portNumber)
+
+		ChdirHome()
+
 		GL = TrLock{Lock: new (sync.RWMutex)}
-
-
-		if  _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
-			err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory),0700)
-			if err != nil {
-				panic(err)
-			}
-			Config = &MegaConfig{}
-			SaveConfig(&Config)
-		} else {
-			err = LoadConfig(&Config)
-			if err != nil {
-				panic(err)
-			}
-
-		}
-
 		
-
-		if Prod {
-			if  !Windows {
-	      		if isMac := strings.Contains(runtime.GOOS, "arwin"); isMac { 
-	      			core.RunCmd("open http://localhost:9001/index")
-	      		} else {
-	      			core.RunCmd("xdg-open http://localhost:9001/index")
-	      		}
-	    	} else {
-				core.RunCmd("cmd /C start http://localhost:9001/index")
-	    	}
-    	}
-
-    	// Mega monitor timer
-    	 ticker := time.NewTicker(Checkinterval)
-	     go MegaTimer(ticker)
+		if !WorkerMode {
+			InitConfigLoad()
+			if !*nobrowser {
+				LaunchBrowser()
+			}
+			if WorkerAddressPort != DefaultAddress {
+				RegisterWorker(WorkerAddressPort)
+			}
+	    	ticker := time.NewTicker(Checkinterval)
+		    go MegaTimer(ticker)
+		} else {
+			SelfAnnounce(*dispaddr)
+			Config = &MegaConfig{}
+		}
+		
+	
 
 	</main>
 
@@ -126,7 +117,10 @@
 	<methods>
 			<func name="Mega" var="" return="(result *MegaConfig)">
 				GL.Lock.Lock()
-				defer GL.Lock.Unlock()
+				if WorkerAddressPort != DefaultAddress {
+					LoadConfig(&Config)
+				}
+				GL.Lock.Unlock()
 				return Config
 			</func>
 			<func name="AddServer" var="" return="(result []Server)">
@@ -233,6 +227,29 @@
 				SaveConfig(&Config);
 				return true
 			</func>
+
+			<func name="ProcessServer" var="req string" return="(result bool)">		
+				LoadConfig(&Config)
+				server,index := FindServer(req)
+				Process(server,index)
+				return true
+			</func>
+
+			<func name="UpdateServer" var="req Server" return="(result bool)">
+				LoadConfig(&Config)
+				GL.Lock.Lock()
+				_,index := FindServer(req.ID)
+				Config.Servers[index].Uptime = req.Uptime
+				GL.Lock.Unlock()
+				SaveConfig(&Config)	
+				return true
+			</func>
+
+			<func name="RegisterServer" var="req string" return="(result bool)">
+				RegisterWorker(req)
+				return true
+			</func>
+
 	</methods>
 
 	<templates>
@@ -245,6 +262,38 @@
 					return true
 				}
 			</end>
+
+			<!-- Deploy endpoints as functions by updating
+			this configuration file's deploy tag from 'webapp' to  'faas'.
+			Find more information about gos FaaS deployments here : 
+			http://gophersauce.com/docs/markup.html -->
+			<end path="/update/server" type="POST" >
+				type PayloadOfRequest struct {
+					req string
+				}
+				decoder := json.NewDecoder(r.Body)
+				var tmvv PayloadOfRequest
+				err := decoder.Decode(&tmvv)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+					return true
+				}
+				_ = NetProcessServer(tmvv.req)
+				w.Header().Set("Content-Type", "text/plain")
+				w.Write(OK)
+			</end>
+
+			<end path="/mega" type="POST" >
+				
+				Cfg := &MegaConfig{}
+				LoadConfig(&Config) 
+				w.Header().Set("Content-Type", "application/json")
+				retjson := []byte(mResponse(Cfg))
+				w.Write(retjson)
+				retjson = nil
+			</end>
+			<!-- End Faas functions -->
   
 	</endpoints>
 </gos>

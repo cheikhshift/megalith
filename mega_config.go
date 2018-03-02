@@ -5,6 +5,8 @@ import "time"
 // Megalith directory names
 var (
 	// name of megalith workspace directory.
+	// relative to your $HOME directory on Unix/Linux or
+	// %USERPROFILE% on Windows.
 	megaWorkspace string = "megaWorkSpace"
 	// name of megalith log directory.
 	logDirectory string = "logDirectory"
@@ -18,7 +20,7 @@ var Production bool = false
 
 // Interval to perform requests
 // to the servers your are
-// monitoring
+// monitoring.
 const Checkinterval time.Duration = 2 * time.Minute // minutes
 
 // String formats
@@ -62,8 +64,8 @@ const BeatAt string = "Beat at "
 // Browser open command
 const (
 	DarwinOpen string = "open http://localhost:9001/index"
-	NTOpen     string = "xdg-open http://localhost:9001/index"
-	LinuxOpen  string = "cmd /C start http://localhost:9001/index"
+	NTOpen     string = "cmd /C start http://localhost:9001/index"
+	LinuxOpen  string = "xdg-open http://localhost:9001/index"
 )
 
 // Misc constants
@@ -74,4 +76,18 @@ const (
 	ContentJson     string = "application/json"
 	DayInSeconds    int64  = 86400
 	Zero            int    = 0
+	PORT            string = "PORT"
+	DefaultAddress  string = "http://127.0.0.1:9001"
+	LockExt         string = ".lock"
 )
+
+// Misc variables
+var (
+	OK = []byte("OK")
+)
+
+// Headers to use during instance communication
+// Intended to be used to provide authentication information
+// To access megalith worker cluster/server.
+// ie : Content-Type: value\nX-Header: value\n
+var AuthorizeHeader string

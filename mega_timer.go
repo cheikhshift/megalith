@@ -16,7 +16,11 @@ func Pulse() {
 	if Config.Servers != nil {
 		for servIndex, server := range Config.Servers {
 			if server.Live {
-				go Process(server, servIndex)
+				if Worker.Host != "" {
+					go DispatchtoWorker(server)
+				} else {
+					go Process(server, servIndex)
+				}
 			}
 		}
 	}

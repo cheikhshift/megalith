@@ -14,7 +14,10 @@ func Process(server Server, servIndex int) {
 		logcurrent.Requests = append(logcurrent.Requests, Request{Code: reqframe, Owner: apiid})
 	}
 
+	// Lock log file
+
 	SaveLog(server.ID, &logcurrent)
+
 	for endIndex, endpointCheck := range server.Endpoints {
 		apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
 		success, failed := CountAndReturn(logcurrent.Requests, apiid)
@@ -27,6 +30,7 @@ func Process(server Server, servIndex int) {
 	GL.Lock.Lock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
 	GL.Lock.Unlock()
+
 	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail)
 	go SaveConfig(&Config)
 
@@ -37,7 +41,7 @@ func CountAndReturn(requests []Request, owner string) (int, int) {
 	failed := Zero
 
 	for _, reqcap := range requests {
-		if reqcap.Owner == owner || owner == "" {
+		if reqcap.Owner == owner || owner == EmptyString {
 			if reqcap.Code < MaxPossibleHTTPSuccessCode {
 				success++
 			} else {

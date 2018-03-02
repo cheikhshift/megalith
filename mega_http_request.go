@@ -10,6 +10,7 @@ import (
 
 func Req(server Server, endpoint Endpoint) int {
 	var tr *http.Transport
+
 	_u := fmt.Sprintf(urlformat, server.Host, endpoint.Path)
 
 	tr = &http.Transport{}
@@ -35,8 +36,10 @@ func Req(server Server, endpoint Endpoint) int {
 	} else {
 		ert = resp.StatusCode
 	}
-	if resp.Body != nil {
-		resp.Body.Close()
+	if resp != nil {
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 	}
 	tr.CloseIdleConnections()
 	return ert

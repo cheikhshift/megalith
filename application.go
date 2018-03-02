@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/cheikhshift/db"
 	"github.com/cheikhshift/gos/core"
@@ -19,9 +20,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +34,7 @@ var TemplateFuncStore template.FuncMap
 var templateCache = gosweb.NewTemplateCache()
 
 func StoreNetfn() int {
-	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "USetting": NetUSetting, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery, "MegaConfig": NetstructMegaConfig, "isMegaConfig": NetcastMegaConfig, "TrLock": NetstructTrLock, "isTrLock": NetcastTrLock, "Server": NetstructServer, "isServer": NetcastServer, "Endpoint": NetstructEndpoint, "isEndpoint": NetcastEndpoint, "RequestLog": NetstructRequestLog, "isRequestLog": NetcastRequestLog, "Request": NetstructRequest, "isRequest": NetcastRequest, "Contact": NetstructContact, "isContact": NetcastContact, "MailSettings": NetstructMailSettings, "isMailSettings": NetcastMailSettings, "Settings": NetstructSettings, "isSettings": NetcastSettings, "Clock": NetstructClock, "isClock": NetcastClock, "TwilioInfo": NetstructTwilioInfo, "isTwilioInfo": NetcastTwilioInfo}
+	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "USetting": NetUSetting, "ProcessServer": NetProcessServer, "UpdateServer": NetUpdateServer, "RegisterServer": NetRegisterServer, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery, "MegaConfig": NetstructMegaConfig, "isMegaConfig": NetcastMegaConfig, "TrLock": NetstructTrLock, "isTrLock": NetcastTrLock, "Server": NetstructServer, "isServer": NetcastServer, "Endpoint": NetstructEndpoint, "isEndpoint": NetcastEndpoint, "RequestLog": NetstructRequestLog, "isRequestLog": NetcastRequestLog, "Request": NetstructRequest, "isRequest": NetcastRequest, "Contact": NetstructContact, "isContact": NetcastContact, "MailSettings": NetstructMailSettings, "isMailSettings": NetcastMailSettings, "Settings": NetstructSettings, "isSettings": NetcastSettings, "Clock": NetstructClock, "isClock": NetcastClock, "TwilioInfo": NetstructTwilioInfo, "isTwilioInfo": NetcastTwilioInfo}
 	return 0
 }
 
@@ -151,6 +150,34 @@ func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
 	}
 	if r.Method == "RESET" {
 		return true
+	} else if isURL := (r.URL.Path == "/update/server" && r.Method == strings.ToUpper("POST")); !callmet && isURL {
+
+		type PayloadOfRequest struct {
+			req string
+		}
+		decoder := json.NewDecoder(r.Body)
+		var tmvv PayloadOfRequest
+		err := decoder.Decode(&tmvv)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+			return true
+		}
+		_ = NetProcessServer(tmvv.req)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write(OK)
+
+		callmet = true
+	} else if isURL := (r.URL.Path == "/mega" && r.Method == strings.ToUpper("POST")); !callmet && isURL {
+
+		Cfg := &MegaConfig{}
+		LoadConfig(&Config)
+		w.Header().Set("Content-Type", "application/json")
+		retjson := []byte(mResponse(Cfg))
+		w.Write(retjson)
+		retjson = nil
+
+		callmet = true
 	}
 
 	if callmet {
@@ -823,7 +850,10 @@ func NetLoadWebAsset(args ...interface{}) string {
 func NetMega() (result *MegaConfig) {
 
 	GL.Lock.Lock()
-	defer GL.Lock.Unlock()
+	if WorkerAddressPort != DefaultAddress {
+		LoadConfig(&Config)
+	}
+	GL.Lock.Unlock()
 	return Config
 
 }
@@ -960,6 +990,37 @@ func NetUSetting(req Settings) (result bool) {
 	Config.LastReset = time.Now().Unix()
 	GL.Lock.Unlock()
 	SaveConfig(&Config)
+	return true
+
+}
+
+//
+func NetProcessServer(req string) (result bool) {
+
+	LoadConfig(&Config)
+	server, index := FindServer(req)
+	Process(server, index)
+	return true
+
+}
+
+//
+func NetUpdateServer(req Server) (result bool) {
+
+	LoadConfig(&Config)
+	GL.Lock.Lock()
+	_, index := FindServer(req.ID)
+	Config.Servers[index].Uptime = req.Uptime
+	GL.Lock.Unlock()
+	SaveConfig(&Config)
+	return true
+
+}
+
+//
+func NetRegisterServer(req string) (result bool) {
+
+	RegisterWorker(req)
 	return true
 
 }
@@ -1313,45 +1374,38 @@ func dummy_timer() {
 func main() {
 	fmt.Fprintf(os.Stdout, "%v\n", os.Getpid())
 
-	Windows := strings.Contains(runtime.GOOS, "windows")
-	if Windows {
-		os.Chdir(os.ExpandEnv("$USERPROFILE"))
-	} else {
-		os.Chdir(os.ExpandEnv("$HOME"))
-	}
+	nobrowser := flag.Bool("nobrowser", false, "Launch without openning browser")
+	worker := flag.Bool("worker", false, "Launch megalith instance as worker")
+	dispaddr := flag.String("dispatcher", DefaultAddress, "Host name of dispatcher instance. Add port number as needed. ie hostname:9000")
+	workaddr := flag.String("hostname", DefaultAddress, "Host name of worker instance. Add port number as needed. ie hostname:9000")
+	portNumber := flag.String("port", "9001", "The port number megalith will to listen on")
+	fws := flag.String("workspace", "megaWorkSpace", "Set instance directory")
+
+	flag.Parse()
+	WorkerMode = *worker
+	DispatcherAddressPort = *dispaddr
+	WorkerAddressPort = *workaddr
+	megaWorkspace = *fws
+	os.Setenv(PORT, *portNumber)
+
+	ChdirHome()
 
 	GL = TrLock{Lock: new(sync.RWMutex)}
 
-	if _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
-		err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory), 0700)
-		if err != nil {
-			panic(err)
+	if !WorkerMode {
+		InitConfigLoad()
+		if !*nobrowser {
+			LaunchBrowser()
 		}
-		Config = &MegaConfig{}
-		SaveConfig(&Config)
+		if WorkerAddressPort != DefaultAddress {
+			RegisterWorker(WorkerAddressPort)
+		}
+		ticker := time.NewTicker(Checkinterval)
+		go MegaTimer(ticker)
 	} else {
-		err = LoadConfig(&Config)
-		if err != nil {
-			panic(err)
-		}
-
+		SelfAnnounce(*dispaddr)
+		Config = &MegaConfig{}
 	}
-
-	if Prod {
-		if !Windows {
-			if isMac := strings.Contains(runtime.GOOS, "arwin"); isMac {
-				core.RunCmd("open http://localhost:9001/index")
-			} else {
-				core.RunCmd("xdg-open http://localhost:9001/index")
-			}
-		} else {
-			core.RunCmd("cmd /C start http://localhost:9001/index")
-		}
-	}
-
-	// Mega monitor timer
-	ticker := time.NewTicker(Checkinterval)
-	go MegaTimer(ticker)
 
 	//psss go code here : func main()
 	store.Options = &sessions.Options{
@@ -1457,6 +1511,24 @@ function USetting(Req , cb){
 	
 	t.Req = Req
 	jsrequestmomentum("/momentum/funcs?name=USetting", t, "POSTJSON", cb)
+}
+function ProcessServer(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=ProcessServer", t, "POSTJSON", cb)
+}
+function UpdateServer(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=UpdateServer", t, "POSTJSON", cb)
+}
+function RegisterServer(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=RegisterServer", t, "POSTJSON", cb)
 }
 `))
 	})
@@ -1658,6 +1730,60 @@ function USetting(Req , cb){
 			}
 			resp := db.O{}
 			respresult0 := NetUSetting(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "ProcessServer" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadProcessServer struct {
+				Req string
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadProcessServer
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetProcessServer(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "UpdateServer" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadUpdateServer struct {
+				Req Server
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadUpdateServer
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetUpdateServer(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "RegisterServer" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadRegisterServer struct {
+				Req string
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadRegisterServer
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetRegisterServer(tmvv.Req)
 
 			resp["result"] = respresult0
 			w.Write([]byte(mResponse(resp)))
