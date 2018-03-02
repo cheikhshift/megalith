@@ -1,0 +1,23 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: megalith-shared
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 25Gi
+  accessModes: ["ReadWriteMany"]
+  hostPath:
+    path: "/root/megaWorkSpace/"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: megalith-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 3Gi

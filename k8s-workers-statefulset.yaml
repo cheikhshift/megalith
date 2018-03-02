@@ -1,0 +1,33 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: megalith-service
+spec:
+  selector:
+    matchLabels:
+      app: megalith # has to match .spec.template.metadata.labels
+  serviceName: "megalith"
+  template:
+    metadata:
+      labels:
+        app: megalith # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: megalith
+        image: megalith:latest
+        imagePullPolicy : Never
+        ports:
+        - containerPort: 9001
+        resources:
+            limits:
+              memory: 32Mi
+            requests:
+              memory: 16Mi
+        volumeMounts:
+        - name: megalith-storage
+          mountPath: /root/megaWorkSpace
+      volumes:
+      - name: megalith-storage
+        persistentVolumeClaim:
+          claimName: megalith-claim

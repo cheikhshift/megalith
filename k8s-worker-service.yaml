@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: megalith
+  labels:
+    app: megalith
+spec:
+  ports:
+  - port: 9001
+  type: LoadBalancer
+  selector:
+    app: megalith

@@ -1,0 +1,33 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: megalith-dispatcher
+spec:
+  selector:
+    matchLabels:
+      app: megalith-dispatcher # has to match .spec.template.metadata.labels
+  serviceName: "megalith-dispatcher"
+  template:
+    metadata:
+      labels:
+        app: megalith-dispatcher # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: megalith-dispatcher
+        image: megalith_dispatcher:latest
+        imagePullPolicy : Never
+        ports:
+        - containerPort: 9001
+        resources:
+            limits:
+              memory: 64Mi
+            requests:
+              memory: 32Mi
+        volumeMounts:
+        - name: megalith-storage
+          mountPath: /root/megaWorkSpace
+      volumes:
+      - name: megalith-storage
+        persistentVolumeClaim:
+          claimName: megalith-claim
