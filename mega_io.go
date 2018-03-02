@@ -2,8 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/theckman/go-flock"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,23 +13,19 @@ func GenConfigName() string {
 
 //Config functions
 func SaveConfig(v interface{}) error {
-	GL.Lock.Lock()
-	fileLock := flock.NewFlock(fmt.Sprintf(urlformat, GenConfigName(), LockExt))
-	fileLock.Lock()
+	ShouldLock()
 	str := mResponse(v)
 	pathoffile := GenConfigName()
 	strbytes := []byte(str)
 	err := ioutil.WriteFile(pathoffile, strbytes, 0700)
 	strbytes = nil
-	fileLock.Unlock()
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	return err
 
 }
 func LoadConfig(targ interface{}) error {
-	GL.Lock.Lock()
+	ShouldLock()
 	pathoffile := GenConfigName()
-
 	data, err := ioutil.ReadFile(pathoffile)
 	if err != nil {
 		return err
@@ -39,7 +33,7 @@ func LoadConfig(targ interface{}) error {
 	strdata := string(data)
 	bts := []byte(strdata)
 	err = json.Unmarshal(bts, targ)
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	return err
 }
 
@@ -49,14 +43,11 @@ func GenLogName(name string) string {
 
 // Server request log functions
 func SaveLog(name string, v interface{}) error {
-	fileLock := flock.NewFlock(fmt.Sprintf(urlformat, GenLogName(name), LockExt))
-	fileLock.Lock()
 	str := mResponse(v)
 	pathoffile := GenLogName(name)
 	strbytes := []byte(str)
 	err := ioutil.WriteFile(pathoffile, strbytes, 0700)
 	strbytes = nil
-	fileLock.Unlock()
 	return err
 }
 

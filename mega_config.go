@@ -7,6 +7,8 @@ var (
 	// name of megalith workspace directory.
 	// relative to your $HOME directory on Unix/Linux or
 	// %USERPROFILE% on Windows.
+	// Prefix this variable with a root location to save
+	// megalith data in another folder.
 	megaWorkspace string = "megaWorkSpace"
 	// name of megalith log directory.
 	logDirectory string = "logDirectory"

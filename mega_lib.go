@@ -32,18 +32,23 @@ func ShouldDeleteLog(server string) {
 	}
 }
 
+
+
 func InitConfigLoad() {
-	if _, err := os.Stat(megaWorkspace); os.IsNotExist(err) {
-		err = os.MkdirAll(filepath.Join(megaWorkspace, logDirectory), 0700)
+	logpath := filepath.Join(megaWorkspace, logDirectory)
+	if _, err := os.Stat(logpath); os.IsNotExist(err) {
+		err = os.MkdirAll(logpath, 0700)
 		if err != nil {
 			panic(err)
 		}
 		Config = &MegaConfig{}
-		SaveConfig(&Config)
+		if DispatcherAddressPort != DefaultAddress {
+			SaveConfig(&Config)
+		}
 	} else {
 		err = LoadConfig(&Config)
 		if err != nil {
-			panic(err)
+			Config = &MegaConfig{}
 		}
 
 	}

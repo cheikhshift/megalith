@@ -11,6 +11,7 @@
 	<domain></domain><!-- Cookie domain -->
 	<var type="*MegaConfig">Config</var>
 	<var type="TrLock">GL</var>
+	<var type="bool">isInContainer</var>
 	<import src="github.com/cheikhshift/momentum/gos.gxml"/>
 	<import src="strings"/>
 	<import src="math/rand"/>
@@ -26,16 +27,24 @@
 	 	workaddr := flag.String("hostname", DefaultAddress, "Host name of worker instance. Add port number as needed. ie hostname:9000")
 	 	portNumber := flag.String("port", DefaultPort, "The port number megalith will to listen on") 
 	 	fws := flag.String("workspace", "megaWorkSpace", "Set instance directory") 
+	 	container :=  flag.Bool("container", false, "Get Dispatcher and hostname addresses from env. variables.")
 
 	    flag.Parse()
-	 	WorkerMode = *worker
-	 	DispatcherAddressPort = *dispaddr
-	 	WorkerAddressPort = *workaddr
-	 	megaWorkspace = *fws
-	 	if *portNumber != DefaultPort {
-	 		os.Setenv(PORT, *portNumber)
+	    WorkerMode = *worker
+
+	    if *container == false { 	
+		 	DispatcherAddressPort = *dispaddr
+		 	WorkerAddressPort = *workaddr
+		 	megaWorkspace = *fws
+		 	if *portNumber != DefaultPort {
+		 		os.Setenv(PORT, *portNumber)
+		 	}
+	 	} else {
+	 		DispatcherAddressPort = os.ExpandEnv("$DISPATCHER_ADDR")
+	 		WorkerAddressPort = os.ExpandEnv("$WORKER_ADDR")
 	 	}
 
+	 	isInContainer = *container
 		ChdirHome()
 
 		GL = TrLock{Lock: new (sync.RWMutex)}
@@ -51,7 +60,7 @@
 	    	ticker := time.NewTicker(Checkinterval)
 		    go MegaTimer(ticker)
 		} else {
-			SelfAnnounce(*dispaddr)
+			SelfAnnounce(DispatcherAddressPort)
 			Config = &MegaConfig{}
 		}
 		
@@ -118,27 +127,30 @@
 	</header>
 	<methods>
 			<func name="Mega" var="" return="(result *MegaConfig)">
-				GL.Lock.Lock()
+				ShouldLock()
 				if WorkerAddressPort != DefaultAddress {
 					LoadConfig(&Config)
 				}
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				return Config
 			</func>
 			<func name="AddServer" var="" return="(result []Server)">
-				GL.Lock.Lock()
+				ShouldLock()
 				randint := rand.Intn(200) + 50 + len(Config.Servers) 
 				genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)
 				ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}
 				Config.Servers = append(Config.Servers, ns)
-				GL.Lock.Unlock()
+				if DispatcherAddressPort != DefaultAddress {
+					ioutil.WriteFile(fmt.Sprintf(urlformat, GenLogName(ns.ID), LockExt), OK ,0700)
+				}
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return Config.Servers
 			</func>
 
 			<func name="DServer" var="req Server" return="(result []Server)">
 				result = []Server{}
-				GL.Lock.Lock()
+				ShouldLock()
 				for _,target := range Config.Servers {
 					if target.ID != req.ID {
 						result = append(result, target)
@@ -146,42 +158,42 @@
 				}
 				DeleteLog(req.ID)
 				Config.Servers = result
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UServer" var="req Server" return="(result bool)">
-				GL.Lock.Lock()
+				ShouldLock()
 				for index,target := range Config.Servers {
 					if target.ID == req.ID {
 						Config.Servers[index] = req
 					}
 				}
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<!-- contact funcs -->
 			<func name="AddContact" var="" return="(result []Contact)">
-				GL.Lock.Lock()
+				ShouldLock()
 				nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}
 				Config.Contacts = append(Config.Contacts, nc)
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return Config.Contacts
 			</func>
 
 			<func name="GetLog" var="req Server" return="(result RequestLog)">
-				GL.Lock.Lock()
+				ShouldLock()
 				LoadLog(req.ID, &result)
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				return
 			</func>
 
 			<func name="DContact" var="req Contact" return="(result []Contact)">
 				result = []Contact{}
-				GL.Lock.Lock()
+				ShouldLock()
 				for _,target := range Config.Contacts {
 					if target.ID != req.ID {
 						result = append(result, target)
@@ -189,43 +201,43 @@
 				}
 				
 				Config.Contacts = result
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return
 			</func>
 		    <func name="UContact" var="req Contact" return="(result bool)">
-		    	GL.Lock.Lock()
+		    	ShouldLock()
 				for index,target := range Config.Contacts {
 					if target.ID == req.ID {
 						Config.Contacts[index] = req
 					}
 				}
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<!-- setting funcs -->
 			<func name="UMail" var="req MailSettings" return="(result bool)">
-				GL.Lock.Lock()
+				ShouldLock()
 				Config.Mail = req
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 
 			<func name="UTw" var="req TwilioInfo" return="(result bool)">
-				GL.Lock.Lock()
+				ShouldLock()
 				Config.SMS = req
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return true
 			</func>
 			<func name="USetting" var="req Settings" return="(result bool)">
-				GL.Lock.Lock()
+				ShouldLock()
 				Config.Misc = req
 				Config.LastReset = time.Now().Unix()
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config);
 				return true
 			</func>
@@ -238,11 +250,10 @@
 			</func>
 
 			<func name="UpdateServer" var="req Server" return="(result bool)">
-				LoadConfig(&Config)
-				GL.Lock.Lock()
+				ShouldLock()
 				_,index := FindServer(req.ID)
 				Config.Servers[index].Uptime = req.Uptime
-				GL.Lock.Unlock()
+				ShouldUnlock()
 				SaveConfig(&Config)	
 				return true
 			</func>

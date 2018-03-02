@@ -21,15 +21,15 @@ func Process(server Server, servIndex int) {
 	for endIndex, endpointCheck := range server.Endpoints {
 		apiid := fmt.Sprintf(urlformat, endpointCheck.Method, endpointCheck.Path)
 		success, failed := CountAndReturn(logcurrent.Requests, apiid)
-		GL.Lock.Lock()
+		ShouldLock()
 		Config.Servers[servIndex].Endpoints[endIndex].Uptime = float64(success) / float64(success+failed)
-		GL.Lock.Unlock()
+		ShouldUnlock()
 	}
 
 	success, failed := CountAndReturn(logcurrent.Requests, EmptyString)
-	GL.Lock.Lock()
+	ShouldLock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
-	GL.Lock.Unlock()
+	ShouldUnlock()
 
 	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail)
 	go SaveConfig(&Config)

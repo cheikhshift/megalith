@@ -1,8 +1,6 @@
 package main
 
 import (
-	gosweb "github.com/cheikhshift/gos/web"
-	//iogos-replace
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -10,12 +8,14 @@ import (
 	"fmt"
 	"github.com/cheikhshift/db"
 	"github.com/cheikhshift/gos/core"
+	gosweb "github.com/cheikhshift/gos/web"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fatih/color"
 	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
 	"html"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -571,6 +571,7 @@ func loadPage(title string) (*gosweb.Page, error) {
 
 var Config *MegaConfig
 var GL TrLock
+var isInContainer bool
 
 func init() {
 
@@ -849,11 +850,11 @@ func NetLoadWebAsset(args ...interface{}) string {
 //
 func NetMega() (result *MegaConfig) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	if WorkerAddressPort != DefaultAddress {
 		LoadConfig(&Config)
 	}
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	return Config
 
 }
@@ -861,12 +862,15 @@ func NetMega() (result *MegaConfig) {
 //
 func NetAddServer() (result []Server) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	randint := rand.Intn(200) + 50 + len(Config.Servers)
 	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
 	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
 	Config.Servers = append(Config.Servers, ns)
-	GL.Lock.Unlock()
+	if DispatcherAddressPort != DefaultAddress {
+		ioutil.WriteFile(fmt.Sprintf(urlformat, GenLogName(ns.ID), LockExt), OK, 0700)
+	}
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return Config.Servers
 
@@ -876,7 +880,7 @@ func NetAddServer() (result []Server) {
 func NetDServer(req Server) (result []Server) {
 
 	result = []Server{}
-	GL.Lock.Lock()
+	ShouldLock()
 	for _, target := range Config.Servers {
 		if target.ID != req.ID {
 			result = append(result, target)
@@ -884,7 +888,7 @@ func NetDServer(req Server) (result []Server) {
 	}
 	DeleteLog(req.ID)
 	Config.Servers = result
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return
 
@@ -893,13 +897,13 @@ func NetDServer(req Server) (result []Server) {
 //
 func NetUServer(req Server) (result bool) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	for index, target := range Config.Servers {
 		if target.ID == req.ID {
 			Config.Servers[index] = req
 		}
 	}
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -908,10 +912,10 @@ func NetUServer(req Server) (result bool) {
 //
 func NetAddContact() (result []Contact) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	nc := Contact{ID: core.NewLen(20), Nickname: "New contact"}
 	Config.Contacts = append(Config.Contacts, nc)
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return Config.Contacts
 
@@ -920,9 +924,9 @@ func NetAddContact() (result []Contact) {
 //
 func NetGetLog(req Server) (result RequestLog) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	LoadLog(req.ID, &result)
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	return
 
 }
@@ -931,7 +935,7 @@ func NetGetLog(req Server) (result RequestLog) {
 func NetDContact(req Contact) (result []Contact) {
 
 	result = []Contact{}
-	GL.Lock.Lock()
+	ShouldLock()
 	for _, target := range Config.Contacts {
 		if target.ID != req.ID {
 			result = append(result, target)
@@ -939,7 +943,7 @@ func NetDContact(req Contact) (result []Contact) {
 	}
 
 	Config.Contacts = result
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return
 
@@ -948,13 +952,13 @@ func NetDContact(req Contact) (result []Contact) {
 //
 func NetUContact(req Contact) (result bool) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	for index, target := range Config.Contacts {
 		if target.ID == req.ID {
 			Config.Contacts[index] = req
 		}
 	}
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -963,9 +967,9 @@ func NetUContact(req Contact) (result bool) {
 //
 func NetUMail(req MailSettings) (result bool) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	Config.Mail = req
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -974,9 +978,9 @@ func NetUMail(req MailSettings) (result bool) {
 //
 func NetUTw(req TwilioInfo) (result bool) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	Config.SMS = req
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -985,10 +989,10 @@ func NetUTw(req TwilioInfo) (result bool) {
 //
 func NetUSetting(req Settings) (result bool) {
 
-	GL.Lock.Lock()
+	ShouldLock()
 	Config.Misc = req
 	Config.LastReset = time.Now().Unix()
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -1007,11 +1011,10 @@ func NetProcessServer(req string) (result bool) {
 //
 func NetUpdateServer(req Server) (result bool) {
 
-	LoadConfig(&Config)
-	GL.Lock.Lock()
+	ShouldLock()
 	_, index := FindServer(req.ID)
 	Config.Servers[index].Uptime = req.Uptime
-	GL.Lock.Unlock()
+	ShouldUnlock()
 	SaveConfig(&Config)
 	return true
 
@@ -1380,16 +1383,24 @@ func main() {
 	workaddr := flag.String("hostname", DefaultAddress, "Host name of worker instance. Add port number as needed. ie hostname:9000")
 	portNumber := flag.String("port", DefaultPort, "The port number megalith will to listen on")
 	fws := flag.String("workspace", "megaWorkSpace", "Set instance directory")
+	container := flag.Bool("container", false, "Get Dispatcher and hostname addresses from env. variables.")
 
 	flag.Parse()
 	WorkerMode = *worker
-	DispatcherAddressPort = *dispaddr
-	WorkerAddressPort = *workaddr
-	megaWorkspace = *fws
-	if *portNumber != DefaultPort {
-		os.Setenv(PORT, *portNumber)
+
+	if *container == false {
+		DispatcherAddressPort = *dispaddr
+		WorkerAddressPort = *workaddr
+		megaWorkspace = *fws
+		if *portNumber != DefaultPort {
+			os.Setenv(PORT, *portNumber)
+		}
+	} else {
+		DispatcherAddressPort = os.ExpandEnv("$DISPATCHER_ADDR")
+		WorkerAddressPort = os.ExpandEnv("$WORKER_ADDR")
 	}
 
+	isInContainer = *container
 	ChdirHome()
 
 	GL = TrLock{Lock: new(sync.RWMutex)}
@@ -1405,7 +1416,7 @@ func main() {
 		ticker := time.NewTicker(Checkinterval)
 		go MegaTimer(ticker)
 	} else {
-		SelfAnnounce(*dispaddr)
+		SelfAnnounce(DispatcherAddressPort)
 		Config = &MegaConfig{}
 	}
 
