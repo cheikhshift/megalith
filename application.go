@@ -1378,7 +1378,7 @@ func main() {
 	worker := flag.Bool("worker", false, "Launch megalith instance as worker")
 	dispaddr := flag.String("dispatcher", DefaultAddress, "Host name of dispatcher instance. Add port number as needed. ie hostname:9000")
 	workaddr := flag.String("hostname", DefaultAddress, "Host name of worker instance. Add port number as needed. ie hostname:9000")
-	portNumber := flag.String("port", "9001", "The port number megalith will to listen on")
+	portNumber := flag.String("port", DefaultPort, "The port number megalith will to listen on")
 	fws := flag.String("workspace", "megaWorkSpace", "Set instance directory")
 
 	flag.Parse()
@@ -1386,7 +1386,9 @@ func main() {
 	DispatcherAddressPort = *dispaddr
 	WorkerAddressPort = *workaddr
 	megaWorkspace = *fws
-	os.Setenv(PORT, *portNumber)
+	if *portNumber != DefaultPort {
+		os.Setenv(PORT, *portNumber)
+	}
 
 	ChdirHome()
 

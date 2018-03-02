@@ -79,6 +79,7 @@ const (
 	PORT            string = "PORT"
 	DefaultAddress  string = "http://127.0.0.1:9001"
 	LockExt         string = ".lock"
+	DefaultPort     string = "9001"
 )
 
 // Misc variables
