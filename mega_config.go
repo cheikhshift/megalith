@@ -41,7 +41,7 @@ const (
 Server %s(%s) has an uptime below %.2f%%.
 
 Megalith`
-	DownSub string = "%s is server down."
+	DownSub string = "%s is down."
 )
 
 // Notifier SMTP settings
