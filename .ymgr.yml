@@ -1,0 +1,4 @@
+after: 
+  - "mv bin/megalith /usr/bin/megalith"
+before: 
+  - "mv packager/Procfile ."

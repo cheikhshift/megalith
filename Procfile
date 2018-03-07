@@ -1,0 +1,1 @@
+cs : /opt/megalith/bin/megalith
