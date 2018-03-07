@@ -1,5 +1,5 @@
 let drawer;
-
+var chartColors = ["#333", "#0074D9", "#FF4136", "#2ECC40", "#FF851B", "#7FDBFF", "#B10DC9", "#FFDC00", "#001f3f", "#39CCCC", "#01FF70", "#85144b", "#F012BE", "#3D9970", "#111111", "#AAAAAA"]
 function get(name) {
     if (name = (new RegExp('[?&]' + encodeURIComponent(name) + '=([^&]*)')).exec(location.search))
         return decodeURIComponent(name[1]);
@@ -72,10 +72,13 @@ app.controller('dashboard', ['$scope', function($scope) {
                         data = {
                             datasets: [{
                                 data: [],
-                                backgroundColor: ["#333", "#0074D9", "#FF4136", "#2ECC40", "#FF851B", "#7FDBFF", "#B10DC9", "#FFDC00", "#001f3f", "#39CCCC", "#01FF70", "#85144b", "#F012BE", "#3D9970", "#111111", "#AAAAAA"]
+                                backgroundColor: chartColors
                             }],
                             labels: []
                         };
+                         if(!res.result.Requests){
+                            return;
+                        }
                         for (var o = res.result.Requests.length - 1; o >= 0; o--) {
                             var req = res.result.Requests[o];
                             var indexofcode = data.labels.indexOf(`Code: ${req.Code}`);

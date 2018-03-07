@@ -32,8 +32,6 @@ func ShouldDeleteLog(server string) {
 	}
 }
 
-
-
 func InitConfigLoad() {
 	logpath := filepath.Join(megaWorkspace, logDirectory)
 	if _, err := os.Stat(logpath); os.IsNotExist(err) {

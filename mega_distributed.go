@@ -1,6 +1,6 @@
 package main
 
-import 	"github.com/theckman/go-flock"
+import "github.com/theckman/go-flock"
 import "fmt"
 
 var WorkerMode = false
@@ -19,7 +19,7 @@ var fileLock = flock.NewFlock(fmt.Sprintf(urlformat, GenConfigName(), LockExt))
 func ShouldLock() {
 	if !isInContainer {
 		GL.Lock.Lock()
-	} else {	
+	} else {
 		fileLock.Lock()
 	}
 }

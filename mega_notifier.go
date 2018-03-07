@@ -9,7 +9,7 @@ import (
 )
 
 //Notification dispatcher
-func Notify(server Server, contacts []Contact, mailcfg MailSettings) {
+func Notify(server Server, contacts []Contact, mailcfg MailSettings, smsinfo TwilioInfo) {
 	if contacts != nil {
 		for _, contact := range contacts {
 			if inArr(contact.Watching, server.ID) && contact.Threshold > (server.Uptime*100) {
@@ -20,7 +20,7 @@ func Notify(server Server, contacts []Contact, mailcfg MailSettings) {
 					}
 				}
 				if contact.Phone != EmptyString {
-					err := contact.SendSMS(fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold))
+					err := contact.SendSMS(fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), smsinfo)
 					if err != nil {
 						log.Println(err)
 					}
@@ -51,8 +51,8 @@ func SendEmail(subject, body, to string, mail MailSettings) error {
 }
 
 // Send sms to contact
-func (user Contact) SendSMS(message string) error {
-	client := twilio.NewClient(Config.SMS.SID, Config.SMS.Token, nil)
-	_, err := client.Messages.SendMessage(Config.SMS.From, fmt.Sprintf(TwFormat, Config.SMS.CountryCode, user.Phone), message, nil)
+func (user Contact) SendSMS(message string, smsinfo TwilioInfo) error {
+	client := twilio.NewClient(smsinfo.SID, smsinfo.Token, nil)
+	_, err := client.Messages.SendMessage(smsinfo.From, fmt.Sprintf(TwFormat, smsinfo.CountryCode, user.Phone), message, nil)
 	return err
 }

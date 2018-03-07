@@ -11,11 +11,11 @@
     <link rel="stylesheet" href="/css/mdc.css">
     <script src="/lib/jquery.js"></script>
     <script src="/lib/popper.js"></script>
-    <script src="/lib/bs.js" ></script>
-      <script src="/lib/mdc.js" ></script>
-     <script src="/lib/ang.js" ></script>
-     <script type="text/javascript" src="/funcfactory.js"></script>
-      <script src="/lib/chart.js" ></script>
+    <script src="/lib/bs.js"></script>
+    <script src="/lib/mdc.js"></script>
+    <script src="/lib/ang.js"></script>
+    <script type="text/javascript" src="/funcfactory.js"></script>
+    <script src="/lib/chart.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
     <title>Megalith</title>
 </head>
@@ -38,8 +38,8 @@
                 <a class="mdc-list-item" href="/contacts">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
-       <hr class="mdc-list-divider ">
-        <a class="mdc-list-item " href="/settings">
+                <hr class="mdc-list-divider ">
+                <a class="mdc-list-item " href="/settings">
           <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
        </a>
             </nav>
@@ -53,53 +53,49 @@
             </section>
         </div>
     </header>
-
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <div class="sub-body">
         <div role="progressbar" ng-show="loading" class="mdc-linear-progress mdc-linear-progress--indeterminate">
-  <div class="mdc-linear-progress__buffering-dots"></div>
-  <div class="mdc-linear-progress__buffer"></div>
-  <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
-    <span class="mdc-linear-progress__bar-inner"></span>
-  </div>
-  <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
-    <span class="mdc-linear-progress__bar-inner"></span>
-  </div>
-</div>
-<div style="padding:30px;"  class="text-center" ng-show="!mega.Servers.length  || mega.Servers.length == 0 ">
-   <h3>Welcome to Megalith</h3>
-              <p>Get started by adding a new server to monitor</p>
-              <p><a href="/servers" class="mdc-button">Add a new server</a></p>
-</div>
+            <div class="mdc-linear-progress__buffering-dots"></div>
+            <div class="mdc-linear-progress__buffer"></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
+        </div>
+        <div style="padding:30px;" class="text-center" ng-show="!mega.Servers.length  || mega.Servers.length == 0 ">
+            <h3>Welcome to Megalith</h3>
+            <p>Get started by adding a new server to monitor</p>
+            <p><a href="/servers" class="mdc-button">Add a new server</a></p>
+        </div>
         <div class="mdc-layout-grid">
-
             <div class="mdc-layout-grid__inner">
-             
                 <div class="mdc-layout-grid__cell" ng-repeat="server in mega.Servers" ng-show="server.Live">
                     <div class="mdc-card">
                         <div class="mdc-card__media mdc-card__media--square">
-                              <div class="mdc-card__media-content"><h3>{{ server.Nickname }} </h3>
-                              <h5>{{ server.Host }} </h5>
-                              <p g-class="{'text-danger' : (server.Uptime < 40),'text-success' : (server.Uptime > 70),'text-warning' : (server.Uptime < 70 && server.Uptime > 40 )}" >{{ round(server.Uptime) }}% uptime</p>
-                              <label>HTTP Response codes from server:</label>
-                              <canvas id="{{server.ID }}"></canvas>
-                              <label>( Code 900: the server is not accessible)</label>
+                            <div class="mdc-card__media-content">
+                                <h3>{{ server.Nickname }} </h3>
+                                <h5>{{ server.Host }} </h5>
+                                <p ng-class="{'text-danger' : (server.Uptime < .40),'text-success' : (server.Uptime > .70),'text-warning' : (server.Uptime < .70 && server.Uptime > .40 )}">{{ round(server.Uptime) }}% uptime</p>
+                                <label>HTTP Response codes from server:</label>
+                                <canvas id="{{server.ID }}"></canvas>
                             </div>
                         </div>
                         <!-- ... content ... -->
                         <div class="mdc-card__actions">
                             <div class="mdc-card__action-buttons">
-                                <a class="mdc-button mdc-button--raised  mdc-ripple-upgraded mdc-card__action mdc-card__action--button" href="/servers?edit={{ server.ID }}">Open</a>              
+                                <a class="mdc-button mdc-button--raised  mdc-ripple-upgraded mdc-card__action mdc-card__action--button" href="/servers?edit={{ server.ID }}">Open</a>
                             </div>
-                         
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-        <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
+    <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
         <div class="mdc-snackbar__text"></div>
         <div class="mdc-snackbar__action-wrapper">
             <button type="button" class="mdc-snackbar__action-button"></button>

@@ -72,58 +72,7 @@
 	<key>a very very very very secret key</key>
 	
 	<header> 
-		<struct name="MegaConfig">
-		 	Mail MailSettings
-		 	Servers []Server
-		 	Cl Clock
-		 	Contacts []Contact
-		 	SMS TwilioInfo
-		 	Misc Settings
-		 	LastReset int64
-		</struct>
-		<struct name="TrLock">
-		 	Lock  *sync.RWMutex
-		</struct>
-		<struct name="Server">
-		 	Host,Image,Nickname string
-		 	Endpoints []Endpoint
-		 	Live bool
-		 	ID string
-		 	Uptime float64
-		</struct>
-		<struct name="Endpoint">
-		 	Uptime float64
-		 	Method, Path,Headers,Data string
-		 	Timeout time.Duration
-		 	ID string
-		</struct>
-		<struct name="RequestLog">
-		 	Requests []Request
-		</struct>
-		<struct name="Request">
-		 	Code int
-		 	Owner string
-		</struct>
-		<struct name="Contact">
-		 	Nickname,Email string
-		 	Threshold float64
-		 	Watching []string
-		 	ID,Phone string
-		</struct>
-		<struct name="MailSettings">
-		 	Email,Password,Host,Port string
-		</struct>
-		<struct name="Settings">
-		 	ResetInterval int64
-		</struct>
-		<struct name="Clock">
-		 	Interval int
-		</struct>
-
-		<struct name="TwilioInfo">
-			Token,SID, From,CountryCode string
-		</struct>
-
+	<!-- Moved data types to mega_types.go -->
 	</header>
 	<methods>
 			<func name="Mega" var="" return="(result *MegaConfig)">
@@ -241,7 +190,7 @@
 				SaveConfig(&Config);
 				return true
 			</func>
-
+			<!-- Worker/Dispatcher functions -->
 			<func name="ProcessServer" var="req string" return="(result bool)">		
 				LoadConfig(&Config)
 				server,index := FindServer(req)
@@ -281,9 +230,7 @@
 			Find more information about gos FaaS deployments here : 
 			http://gophersauce.com/docs/markup.html -->
 			<end path="/update/server" type="POST" >
-				type PayloadOfRequest struct {
-					req string
-				}
+				
 				decoder := json.NewDecoder(r.Body)
 				var tmvv PayloadOfRequest
 				err := decoder.Decode(&tmvv)

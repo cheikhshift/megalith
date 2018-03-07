@@ -11,9 +11,9 @@
     <link rel="stylesheet" href="/css/mdc.css">
     <script src="/lib/jquery.js"></script>
     <script src="/lib/popper.js"></script>
-    <script src="/lib/bs.js" ></script>
-      <script src="/lib/mdc.js" ></script>
-     <script src="/lib/ang.js" ></script>
+    <script src="/lib/bs.js"></script>
+    <script src="/lib/mdc.js"></script>
+    <script src="/lib/ang.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
     <script type="text/javascript" src="/funcfactory.js"></script>
     <script type="text/javascript" src="/js/settings.js"></script>
@@ -38,7 +38,7 @@
                 <a class="mdc-list-item" href="/contacts">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
-       <hr class="mdc-list-divider ">
+                <hr class="mdc-list-divider ">
                 <a class="mdc-list-item mdc-list-item--activated" href="/settings">
           <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
        </a>
@@ -66,34 +66,32 @@
                 <span class="mdc-linear-progress__bar-inner"></span>
             </div>
         </div>
-       <div id="my-mdc-tab-bar-scroller" class="mdc-tab-bar-scroller">
-  <div class="mdc-tab-bar-scroller__indicator mdc-tab-bar-scroller__indicator--back">
-    <a class="mdc-tab-bar-scroller__indicator__inner material-icons" href="#" aria-label="scroll back button">
+        <div id="my-mdc-tab-bar-scroller" class="mdc-tab-bar-scroller">
+            <div class="mdc-tab-bar-scroller__indicator mdc-tab-bar-scroller__indicator--back">
+                <a class="mdc-tab-bar-scroller__indicator__inner material-icons" href="#" aria-label="scroll back button">
       navigate_before
     </a>
-  </div>
-  <div class="mdc-tab-bar-scroller__scroll-frame">
-    <nav id="my-scrollable-tab-bar" class="mdc-tab-bar mdc-tab-bar-scroller__scroll-frame__tabs">
-   
-            <a class="mdc-tab mdc-tab--active" ng-click="selected = 0" href="#">
+            </div>
+            <div class="mdc-tab-bar-scroller__scroll-frame">
+                <nav id="my-scrollable-tab-bar" class="mdc-tab-bar mdc-tab-bar-scroller__scroll-frame__tabs">
+                    <a class="mdc-tab mdc-tab--active" ng-click="selected = 0" href="#">
     <i class="material-icons mdc-tab__icon" aria-label="Recents">email</i> Email 
   </a>
-            <a class="mdc-tab" href="#" ng-click="selected = 1">
+                    <a class="mdc-tab" href="#" ng-click="selected = 1">
     <i class="material-icons mdc-tab__icon" aria-label="Favorites">phone</i> Twilio
   </a>
-  <a class="mdc-tab" href="#" ng-click="selected = 2">
+                    <a class="mdc-tab" href="#" ng-click="selected = 2">
     <i class="material-icons mdc-tab__icon" aria-label="Favorites">settings</i> Misc.
   </a>
- 
-            <span class="mdc-tab-bar__indicator"></span>
-        </nav>
-  </div>
-  <div class="mdc-tab-bar-scroller__indicator mdc-tab-bar-scroller__indicator--forward">
-    <a class="mdc-tab-bar-scroller__indicator__inner material-icons" href="#" aria-label="scroll forward button">
+                    <span class="mdc-tab-bar__indicator"></span>
+                </nav>
+            </div>
+            <div class="mdc-tab-bar-scroller__indicator mdc-tab-bar-scroller__indicator--forward">
+                <a class="mdc-tab-bar-scroller__indicator__inner material-icons" href="#" aria-label="scroll forward button">
       navigate_next
     </a>
-  </div>
-</div>
+            </div>
+        </div>
         <div ng-show="selected == 0" class="mdc-list-group full-height list-group--custom">
             <div class="mdc-list-group__subheader">
                 <hr class="mdc-list-divider">
@@ -113,7 +111,6 @@
         </div>
         <div ng-show="selected == 1" class="mdc-list-group full-height list-group--custom">
             <div class="mdc-list-group__subheader">
-           
                 <hr class="mdc-list-divider">
                 <br>
                 <label>Twilio API token</label>
@@ -131,19 +128,16 @@
                 <button ng-click="updateTw()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
             </div>
         </div>
-
-         <div ng-show="selected == 2" class="mdc-list-group full-height list-group--custom">
+        <div ng-show="selected == 2" class="mdc-list-group full-height list-group--custom">
             <div class="mdc-list-group__subheader">
-           
                 <hr class="mdc-list-divider">
                 <br>
                 <label>Uptime log reset interval (in days)</label>
                 <input type="number" placeholder="..." ng-model="mega.Misc.ResetInterval" class="form-control">
-               <br >
+                <br>
                 <button ng-click="updateSettings()" ng-disabled="loading" class="mdc-button mdc-button--raised">Save</button>
             </div>
         </div>
-
     </div>
     <div class="mdc-snackbar" aria-live="assertive" aria-atomic="true" aria-hidden="true">
         <div class="mdc-snackbar__text"></div>

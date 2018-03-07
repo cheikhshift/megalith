@@ -29,17 +29,13 @@ func Process(server Server, servIndex int) {
 	success, failed := CountAndReturn(logcurrent.Requests, EmptyString)
 	ShouldLock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
+	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail, Config.SMS)
 	ShouldUnlock()
 
-	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail)
 	go SaveConfig(&Config)
-
 }
 
-func CountAndReturn(requests []Request, owner string) (int, int) {
-	success := Zero
-	failed := Zero
-
+func CountAndReturn(requests []Request, owner string) (success int, failed int) {
 	for _, reqcap := range requests {
 		if reqcap.Owner == owner || owner == EmptyString {
 			if reqcap.Code < MaxPossibleHTTPSuccessCode {
