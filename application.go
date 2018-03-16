@@ -34,7 +34,7 @@ var TemplateFuncStore template.FuncMap
 var templateCache = gosweb.NewTemplateCache()
 
 func StoreNetfn() int {
-	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "USetting": NetUSetting, "ProcessServer": NetProcessServer, "UpdateServer": NetUpdateServer, "RegisterServer": NetRegisterServer, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery}
+	TemplateFuncStore = template.FuncMap{"a": gosweb.Netadd, "s": gosweb.Netsubs, "m": gosweb.Netmultiply, "d": gosweb.Netdivided, "js": gosweb.Netimportjs, "css": gosweb.Netimportcss, "sd": gosweb.NetsessionDelete, "sr": gosweb.NetsessionRemove, "sc": gosweb.NetsessionKey, "ss": gosweb.NetsessionSet, "sso": gosweb.NetsessionSetInt, "sgo": gosweb.NetsessionGetInt, "sg": gosweb.NetsessionGet, "form": gosweb.Formval, "eq": gosweb.Equalz, "neq": gosweb.Nequalz, "lte": gosweb.Netlt, "LoadWebAsset": NetLoadWebAsset, "Mega": NetMega, "AddServer": NetAddServer, "DServer": NetDServer, "UServer": NetUServer, "AddContact": NetAddContact, "GetLog": NetGetLog, "DContact": NetDContact, "UContact": NetUContact, "UMail": NetUMail, "UTw": NetUTw, "USetting": NetUSetting, "ProcessServer": NetProcessServer, "UpdateServer": NetUpdateServer, "RegisterServer": NetRegisterServer, "UpdateKubernetes": NetUpdateKubernetes, "AddPod": NetAddPod, "UpdatePod": NetUpdatePod, "GetPods": NetGetPods, "ang": Netang, "bang": Netbang, "cang": Netcang, "server": Netserver, "bserver": Netbserver, "cserver": Netcserver, "jquery": Netjquery, "bjquery": Netbjquery, "cjquery": Netcjquery}
 	return 0
 }
 
@@ -766,6 +766,52 @@ func NetRegisterServer(req string) (result bool) {
 
 }
 
+//
+func NetUpdateKubernetes(req k8sConfig) (result bool) {
+
+	ShouldLock()
+	Config.KubeSettings = req
+	ShouldUnlock()
+	SaveConfig(&Config)
+	return true
+
+}
+
+//
+func NetAddPod(req PodConfig) (watching []PodConfig) {
+
+	ShouldLock()
+	Config.KubeSettings.Monitoring = append(Config.KubeSettings.Monitoring, req)
+	watching = Config.KubeSettings.Monitoring
+	ShouldUnlock()
+	SaveConfig(&Config)
+	return
+
+}
+
+//
+func NetUpdatePod(req PodConfig) (result bool) {
+
+	ShouldLock()
+	for index, target := range Config.KubeSettings.Monitoring {
+		if target.Name == req.Name {
+			Config.KubeSettings.Monitoring[index] = req
+		}
+	}
+	ShouldUnlock()
+	SaveConfig(&Config)
+	return true
+
+}
+
+//
+func NetGetPods() (result []Pod) {
+
+	list, _ := RequestPods()
+	return list.Items
+
+}
+
 func templateFNang(localid string, d interface{}) {
 	if n := recover(); n != nil {
 		color.Red(fmt.Sprintf("Error loading template in path (momentum/ang) : %s", localid))
@@ -1281,6 +1327,29 @@ function RegisterServer(Req , cb){
 	t.Req = Req
 	jsrequestmomentum("/momentum/funcs?name=RegisterServer", t, "POSTJSON", cb)
 }
+function UpdateKubernetes(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=UpdateKubernetes", t, "POSTJSON", cb)
+}
+function AddPod(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=AddPod", t, "POSTJSON", cb)
+}
+function UpdatePod(Req , cb){
+	var t = {}
+	
+	t.Req = Req
+	jsrequestmomentum("/momentum/funcs?name=UpdatePod", t, "POSTJSON", cb)
+}
+function GetPods(  cb){
+	var t = {}
+	
+	jsrequestmomentum("/momentum/funcs?name=GetPods", t, "POSTJSON", cb)
+}
 `))
 	})
 
@@ -1535,6 +1604,77 @@ function RegisterServer(Req , cb){
 			}
 			resp := db.O{}
 			respresult0 := NetRegisterServer(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "UpdateKubernetes" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadUpdateKubernetes struct {
+				Req k8sConfig
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadUpdateKubernetes
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetUpdateKubernetes(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "AddPod" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadAddPod struct {
+				Req PodConfig
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadAddPod
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respwatching0 := NetAddPod(tmvv.Req)
+
+			resp["watching"] = respwatching0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "UpdatePod" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadUpdatePod struct {
+				Req PodConfig
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadUpdatePod
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetUpdatePod(tmvv.Req)
+
+			resp["result"] = respresult0
+			w.Write([]byte(mResponse(resp)))
+		} else if r.FormValue("name") == "GetPods" {
+			w.Header().Set("Content-Type", "application/json")
+			type PayloadGetPods struct {
+			}
+			decoder := json.NewDecoder(r.Body)
+			var tmvv PayloadGetPods
+			err := decoder.Decode(&tmvv)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+				return
+			}
+			resp := db.O{}
+			respresult0 := NetGetPods()
 
 			resp["result"] = respresult0
 			w.Write([]byte(mResponse(resp)))

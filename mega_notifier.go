@@ -30,6 +30,28 @@ func Notify(server Server, contacts []Contact, mailcfg MailSettings, smsinfo Twi
 	}
 }
 
+// Func used to notify users on kubernetes faults
+func NotifyPodContacts(pod PodConfig, contacts []Contact, mailcfg MailSettings, smsinfo TwilioInfo, message string) {
+	if contacts != nil {
+		for _, contact := range contacts {
+			if inArr(contact.Pods, pod.Name) {
+				if contact.Email != EmptyString {
+					err := SendEmail(fmt.Sprintf(DownSubk8s, pod.Name), fmt.Sprintf(DownMsgk8s, contact.Nickname, pod.Name, message), contact.Email, mailcfg)
+					if err != nil {
+						log.Println(err)
+					}
+				}
+				if contact.Phone != EmptyString {
+					err := contact.SendSMS(fmt.Sprintf(DownMsgk8s, contact.Nickname, pod.Name, message), smsinfo)
+					if err != nil {
+						log.Println(err)
+					}
+				}
+			}
+		}
+	}
+}
+
 // Send email to contact
 func SendEmail(subject, body, to string, mail MailSettings) error {
 

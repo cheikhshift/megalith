@@ -30,10 +30,13 @@ func LoadConfig(targ interface{}) error {
 	if err != nil {
 		return err
 	}
-	strdata := string(data)
-	bts := []byte(strdata)
-	err = json.Unmarshal(bts, targ)
+	err = json.Unmarshal(data, targ)
 	ShouldUnlock()
+	return err
+}
+
+func ParsePodMetricList(targ interface{}, data []byte) error {
+	err := json.Unmarshal(data, targ)
 	return err
 }
 
@@ -57,9 +60,7 @@ func LoadLog(name string, targ interface{}) error {
 	if err != nil {
 		return err
 	}
-	strdata := string(data)
-	bts := []byte(strdata)
-	err = json.Unmarshal(bts, targ)
+	err = json.Unmarshal(data, targ)
 	return err
 }
 

@@ -23,7 +23,7 @@ var Production bool = false
 // Interval to perform requests
 // to the servers your are
 // monitoring.
-const Checkinterval time.Duration = 2 * time.Minute // minutes
+const Checkinterval time.Duration = 1 * time.Minute // minutes
 
 // String formats
 const (
@@ -41,7 +41,12 @@ const (
 Server %s(%s) has an uptime below %.2f%%.
 
 Megalith`
-	DownSub string = "%s is down."
+	DownSub    string = "%s is down."
+	DownMsgk8s string = `Dear %s
+Pod %s %s.
+
+Megalith`
+	DownSubk8s string = "%s is using more than its compute resources."
 )
 
 // Notifier SMTP settings

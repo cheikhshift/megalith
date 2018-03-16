@@ -14,40 +14,40 @@
     <script src="/lib/bs.js"></script>
     <script src="/lib/mdc.js"></script>
     <script src="/lib/ang.js"></script>
-    <script type="text/javascript" src="/funcfactory.js"></script>
-    <script src="/lib/chart.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
-    <title>Megalith</title>
+    <script type="text/javascript" src="/funcfactory.js"></script>
+    <script type="text/javascript" src="/js/k8s_setup.js"></script>
+    <title>k8s settings : Megalith</title>
 </head>
 
-<body ng-controller="dashboard" class="mdc-typography mdc-theme--secondary">
-    <aside style="position: absolute;height: 100%;overflow-y: auto;" class="mdc-drawer mdc-drawer--persistent mdc-typography ">
+<body ng-controller="k8s_setup" class="mdc-typography mdc-theme--secondary-dark-bg">
+    <aside style="position: absolute;height: 100%;" class="mdc-drawer mdc-drawer--persistent mdc-typography">
         <nav class="mdc-drawer__drawer">
             <header class="mdc-drawer__header ">
                 <div class="mdc-drawer__header-content">
                     Megalith
                 </div>
             </header>
-            <nav id="icon-with-text-demo" class="mdc-drawer__content mdc-list mdc-theme--secondary ">
-                <a class="mdc-list-item mdc-list-item--activated " href="/">
+            <nav id="icon-with-text-demo" class="mdc-drawer__content mdc-list">
+                <a class="mdc-list-item " href="/">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">data_usage</i> Dashboard 
       </a>
                 <a class="mdc-list-item" href="/servers">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings_system_daydream</i> Servers
       </a>
-                <a class="mdc-list-item" href="/contacts">
+                <a class="mdc-list-item " href="/contacts">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
-        <hr class="mdc-list-divider ">
-                <label class="mdc-list-item "><i class="mdc-list-item__graphic material-icons">new_releases</i> New! K8s Monitoring</label>
-                <a class="mdc-list-item " href="/k8s_setup">
+                <hr class="mdc-list-divider ">
+                <label class="mdc-list-item "><i class="mdc-list-item__graphic material-icons">new_releases</i>New! K8s Monitoring</label>
+                <a class="mdc-list-item mdc-list-item--activated" href="/k8s_setup">
          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">terrain</i> Configuration
          </a>
                 <a class="mdc-list-item " href="/k8s_pods">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true"></i> Pods
       </a>
                 <hr class="mdc-list-divider ">
-                <a class="mdc-list-item " href="/settings">
+                <a class="mdc-list-item" href="/settings">
           <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings</i> Settings
        </a>
             </nav>
@@ -57,7 +57,7 @@
         <div class="mdc-toolbar__row">
             <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
                 <button class="menu material-icons mdc-toolbar__menu-icon">menu</button>
-                <span class="mdc-toolbar__title">Dashboard</span>
+                <span class="mdc-toolbar__title">Configuration</span>
             </section>
         </div>
     </header>
@@ -74,30 +74,25 @@
                 <span class="mdc-linear-progress__bar-inner"></span>
             </div>
         </div>
-        <div style="padding:30px;" class="text-center" ng-show="!mega.Servers.length  || mega.Servers.length == 0 ">
-            <h3>Welcome to Megalith</h3>
-            <p>Get started by adding a new server to monitor</p>
-            <p><a href="/servers" class="mdc-button">Add a new server</a></p>
-        </div>
-        <div class="mdc-layout-grid">
-            <div class="mdc-layout-grid__inner">
-                <div class="mdc-layout-grid__cell" ng-repeat="server in mega.Servers" ng-show="server.Live">
-                    <div class="mdc-card">
-                        <div class="mdc-card__media mdc-card__media--square">
-                            <div class="mdc-card__media-content">
-                                <h3>{{ server.Nickname }} </h3>
-                                <h5>{{ server.Host }} </h5>
-                                <p ng-class="{'text-danger' : (server.Uptime < .40),'text-success' : (server.Uptime > .70),'text-warning' : (server.Uptime < .70 && server.Uptime > .40 )}">{{ round(server.Uptime) }}% uptime</p>
-                                <label>HTTP Response codes from server:</label>
-                                <canvas id="{{server.ID }}"></canvas>
-                            </div>
-                        </div>
-                        <!-- ... content ... -->
-                        <div class="mdc-card__actions">
-                            <div class="mdc-card__action-buttons">
-                                <a class="mdc-button mdc-button--raised  mdc-ripple-upgraded mdc-card__action mdc-card__action--button" href="/servers?edit={{ server.ID }}">Open</a>
-                            </div>
-                        </div>
+        <div class="row full-height">
+            <div class="col-7 full-height" style="margin:0 auto;">
+                <div class="mdc-list-group full-height list-group--custom">
+                    <div class="mdc-list-group__subheader">
+                     
+                        <label>URL scheme and host name of k8s API server.</label>
+                        <input type="text" placeholder="http://k8s" ng-model="mega.KubeSettings.MetricAPIHost" class="form-control">
+                        <label>The port number k8s API is listenning on.</label>
+                        <input type="text" placeholder="8080" ng-model="mega.KubeSettings.MetricAPIPort" class="form-control">
+                        <label>The API path to k8s pod metrics.</label>
+                        <input type="text" placeholder="/apis/metrics/v1alpha1/pods" ng-model="mega.KubeSettings.MetricAPIPath" class="form-control">  
+                         <label>k8s pod namespace.</label>
+                         <p class="text-muted" ng-show="mega.KubeSettings.MetricNamespace == ''">Leave this field empty to get a list of all the pods in your cluster.</p>
+                        <input type="text" placeholder="default" ng-model="mega.KubeSettings.MetricNamespace" class="form-control">                     
+                    </div>
+                    <hr class="mdc-list-divider">
+                    <br>
+                    <div class="mdc-list-group__subheader">
+                        <button class="mdc-button mdc-button--raised" ng-click="saveConfig()">Save</button>
                     </div>
                 </div>
             </div>
@@ -109,6 +104,9 @@
             <button type="button" class="mdc-snackbar__action-button"></button>
         </div>
     </div>
+    <script type="text/javascript ">
+    $(".nsrv,.mdc-list-item__meta.material-icons ").tooltip();
+    </script>
     <script type="text/javascript">
     window.__snackbar = new mdc.snackbar.MDCSnackbar(document.querySelector('.mdc-snackbar'));
     </script>

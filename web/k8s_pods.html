@@ -16,11 +16,11 @@
     <script src="/lib/ang.js"></script>
     <script type="text/javascript" src="/js/app.js"></script>
     <script type="text/javascript" src="/funcfactory.js"></script>
-    <script type="text/javascript" src="/js/contacts.js"></script>
-    <title>Contacts : Megalith</title>
+    <script type="text/javascript" src="/js/k8s_pods.js"></script>
+    <title>k8s settings : Megalith</title>
 </head>
 
-<body ng-controller="Contacts" class="mdc-typography mdc-theme--secondary-dark-bg">
+<body ng-controller="k8s_pods" class="mdc-typography mdc-theme--secondary-dark-bg">
     <aside style="position: absolute;height: 100%;" class="mdc-drawer mdc-drawer--persistent mdc-typography">
         <nav class="mdc-drawer__drawer">
             <header class="mdc-drawer__header ">
@@ -35,15 +35,15 @@
                 <a class="mdc-list-item" href="/servers">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">settings_system_daydream</i> Servers
       </a>
-                <a class="mdc-list-item mdc-list-item--activated" href="/contacts">
+                <a class="mdc-list-item " href="/contacts">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
-         <hr class="mdc-list-divider ">
-                <label class="mdc-list-item "><i class="mdc-list-item__graphic material-icons">new_releases</i> New! K8s Monitoring</label>
+                <hr class="mdc-list-divider ">
+                <label class="mdc-list-item "><i class="mdc-list-item__graphic material-icons">new_releases</i>New! K8s Monitoring</label>
                 <a class="mdc-list-item " href="/k8s_setup">
          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">terrain</i> Configuration
          </a>
-                <a class="mdc-list-item " href="/k8s_pods">
+                <a class="mdc-list-item mdc-list-item--activated" href="/k8s_pods">
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true"></i> Pods
       </a>
                 <hr class="mdc-list-divider ">
@@ -57,8 +57,7 @@
         <div class="mdc-toolbar__row">
             <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
                 <button class="menu material-icons mdc-toolbar__menu-icon">menu</button>
-                <button ng-click="addContact()" data-toggle="tooltip" data-placement="bottom" title="Add a new contact to alert on downtime." class="nsrv material-icons mdc-toolbar__menu-icon">add</button>
-                <span class="mdc-toolbar__title">Contacts</span>
+                <span class="mdc-toolbar__title">k8s Pods</span>
             </section>
         </div>
     </header>
@@ -75,73 +74,59 @@
                 <span class="mdc-linear-progress__bar-inner"></span>
             </div>
         </div>
-        <div class="row full-height">
+            <div class="text-center" ng-show="mega.KubeSettings.MetricAPIHost == '' || mega.KubeSettings.BadConfig">
+                <h3>Please configure k8s API settings.</h3>
+                <p>Megalith needs to know the location your k8s Metric api.</p>
+                <p><a href="/k8s_setup" class="mdc-button--raised mdc-button">Setup</a></p>
+            </div>
+           <div ng-show="mega.KubeSettings.MetricAPIHost != ''" class="row full-height">
             <div class="col-3 full-height">
                 <p style="padding: 10px;margin-bottom: 5px;">
-                    <input type="text" placeholder="Filter by contact nickname" class="form-control" ng-model="search.text">
+                    <input type="text" placeholder="Filter by pod/group name" class="form-control" ng-model="search.text">
                 </p>
                 <ul class="mdc-list  mdc-list--avatar-list">
-                    <li ng-show="(mega.Contacts.length == 0 || !mega.Contacts) && !loading " ng-click="addContact()" class="mdc-list-item">
-                        <span class="mdc-list-item__graphic" role="presentation">
-                   <i class="nsrv material-icons" aria-label="View more information" data-toggle="tooltip" data-placement="bottom" title="Add a new contact to alert on downtime.">
-                    add
-                  </i>
-                  </span>
+          
+                    <li ng-repeat="pod in pods" ng-show="pod.Name.toLowerCase().includes(search.text.toLowerCase())  || !search.text" ng-click="editPod(pod)" ng-class="{'mdc-list-item--activated': (pod == spod)}" class="mdc-list-item">
+                       <span class="mdc-list-item__graphic" ng-show="groupMap[pod.Name] > 1" role="presentation">
+                [GROUP]
+                 </span>
                         <span class="mdc-list-item__text">
-                    New contact
-                   
-                        </span>
-                    </li>
-                    <li ng-repeat="contact in mega.Contacts" ng-show="contact.Nickname.toLowerCase().includes(search.text.toLowerCase())  || !search.text" ng-click="editContact(contact)" ng-class="{'mdc-list-item--activated': (contact == scontact)}" class="mdc-list-item">
-                        <span class="mdc-list-item__graphic" role="presentation">
-                   <i class="material-icons">person</i>
-                  </span>
-                        <span class="mdc-list-item__text">
-                    {{ contact.Nickname }}
+                    {{ pod.Name }} 
                     </span>
-                        <i class="mdc-list-item__meta material-icons" aria-label="View more information" data-toggle="tooltip" data-placement="bottom" title="Update contact.">
+                        <i class="mdc-list-item__meta material-icons" aria-label="View more information" data-toggle="tooltip" data-placement="bottom" title="Update pod.">
                     keyboard_arrow_right
                   </i>
                     </li>
                 </ul>
             </div>
-            <div class="col-5 full-height" ng-show="scontact">
+            <div class="col-5 full-height" ng-show="podConfig">
                 <div class="mdc-list-group full-height list-group--custom">
-                    <div class="mdc-list-group__subheader">Contact settings <a style="float:right;" class="mdc-list-item__meta material-icons" aria-label="View more information" title="Delete contact" ng-click="deleteContact(scontact)">
-                    delete_forever
-                  </a>
+                    <div class="mdc-list-group__subheader">Pod settings 
                         <hr class="mdc-list-divider">
                         <br>
-                        <label>Name</label>
-                        <input type="text" placeholder="..." ng-model="scontact.Nickname" class="form-control">
-                        <br>
-                        <p ng-show="!mega.Mail.Email || mega.Mail.Email == ''">Please make sure you enter your SMTP server information. Access it <a href="/settings">here.</a> </p>
-                        <label>email</label>
-                        <input type="email" placeholder="user@domain.com" ng-model="scontact.Email" class="form-control">
-                        <p ng-show="!mega.SMS.Token || mega.SMS.Token == ''">Please make sure you enter your Twilio API information. Access it <a href="/settings">here.</a> </p>
-                        <label>Phone</label>
-                        <input type="text" placeholder="0000" ng-model="scontact.Phone" class="form-control">
+                        <p ng-repeat="container in usageMap" ng-show="podConfig.Name == container.name">Instance - CPU usage : {{ container.usage.cpu }}. Memory usage : {{ container.usage.memory }}</p>
+                       
+
+                        <input type="checkbox" ng-model="podConfig.Watching"> <label>Monitor</label>
+                
                     </div>
                     <hr class="mdc-list-divider">
                     <div class="mdc-list-group__subheader">
-                        <label>Alert threshold(%)</label>
-                        <p ng-show="!scontact.Threshold">This field specifies the minimum uptime percent (%) a server must reach, before the user is notified. </p>
-                        <input type="number" ng-model="scontact.Threshold" placeholder="%" class="form-control">
+                        <label>Maximum CPU usage</label>
+                        <p ng-show="!podConfig.MaxCPU">This field specifies the maximum CPU time (in seconds) this pod can use.</p>
+                        <input type="number" ng-model="podConfig.MaxCPU" placeholder="100 = 100s" class="form-control">
                         <br>
-                        <label>Servers to watch</label>
-                        <select ng-model="scontact.Watching" multiple="" class="form-control">
-                            <option ng-repeat="server in mega.Servers" value="{{ server.ID }}">{{ server.Nickname }} ( {{ server.Host }} )</option>
-                        </select>
 
-                         <label>k8s Pods to watch</label>
-                        <select ng-model="scontact.Pods" multiple="" class="form-control">
-                            <option ng-repeat="pod in mega.KubeSettings.Monitoring" value="{{ pod.Name }}">{{ pod.Name }}</option>
-                        </select>
+                        <label>Maximum Memory usage</label>
+                        <p ng-show="!podConfig.MaxMemory">This field specifies the maximum memory (in mb) this pod can use.</p>
+                        <input type="number" ng-model="podConfig.MaxMemory" placeholder="" class="form-control">
+                        <br>
+                        
                     </div>
                     <hr class="mdc-list-divider">
                     <br>
                     <div class="mdc-list-group__subheader">
-                        <button class="mdc-button mdc-button--raised" ng-click="updateContact(scontact)">apply</button>
+                        <button class="mdc-button mdc-button--raised" ng-click="updatePod(podConfig)">Save</button>
                     </div>
                 </div>
             </div>

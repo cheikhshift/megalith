@@ -17,7 +17,7 @@ app.controller('Contacts', ['$scope', function($scope) {
 
     $scope.editContact = function(Contact) {
         $scope.scontact = Contact;
-        $scope.sendpoint = false;
+    
     }
 
     $scope.deleteContact = function(Contact) {
