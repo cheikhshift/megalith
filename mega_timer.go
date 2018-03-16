@@ -40,9 +40,11 @@ func k8sMonitor() {
 		if err != nil {
 			log.Println(err)
 		} else {
+			if tempCopy.Monitoring != nil {
 			for _, pod := range tempCopy.Monitoring {
 				// Check and alert contacts
 				go list.CheckContainers(pod, tempContacts, tempMailConfig, tempTwConfig)
+			}
 			}
 		}
 	}
