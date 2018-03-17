@@ -67,12 +67,12 @@ func (usage MP) GetCPUUsage() (cputime int64) {
 		sspl := strings.Split(mspl[1], "s")
 		minutes, _ := strconv.ParseInt(mspl[0], 10, 64)
 		seconds, _ := strconv.ParseInt(sspl[0], 10, 64)
-		cputime = int64(float64(minutes)*60.0) + seconds
+		cputime = int64(float64(minutes) * 60.0) + seconds
 
 	} else if strings.Contains(cpustr, "m") {
 		mspl := strings.Split(cpustr, "m")
 		minutes, _ := strconv.ParseInt(mspl[0], 10, 64)
-		cputime = int64(float64(minutes) / 60.0)
+		cputime = int64(float64(minutes) * 60.0)
 
 	} else if strings.Contains(cpustr, "s") {
 		mspl := strings.Split(cpustr, "s")
