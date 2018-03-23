@@ -19,8 +19,8 @@
     "core",
     "web"
   ]
-  revision = "9f988654dde995f457d414398cf36a0ac2ee6f9e"
-  version = "v0.5.13"
+  revision = "f0806756576922ed7184b7c62b971d9623d14aa3"
+  version = "v0.5.14"
 
 [[projects]]
   name = "github.com/elazarl/go-bindata-assetfs"
