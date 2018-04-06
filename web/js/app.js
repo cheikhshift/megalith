@@ -18,7 +18,15 @@ window.Snackbar = (message, action, handler) => {
 
 $(document).ready(function() {
     drawer = new mdc.drawer.MDCPersistentDrawer(document.querySelector('.mdc-drawer--persistent'));
-    document.querySelector('.menu').addEventListener('click', () => drawer.open = drawer.open ? false : true);
+    document.querySelector('.menu').addEventListener('click', () => {
+        if (drawer.open){
+            $(".sub-body").removeClass('sub-open');
+        } else {
+            $(".sub-body").addClass("sub-open");
+        }
+        drawer.open = drawer.open ? false : true;
+    });
+
 
 });
 

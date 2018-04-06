@@ -63,6 +63,8 @@
 			SelfAnnounce(DispatcherAddressPort)
 			Config = &MegaConfig{}
 		}
+
+
 		
 	
 
@@ -76,11 +78,12 @@
 	</header>
 	<methods>
 			<func name="Mega" var="" return="(result *MegaConfig)">
-				ShouldLock()
 				if WorkerAddressPort != DefaultAddress {
 					LoadConfig(&Config)
 				}
-				ShouldUnlock()
+				ClearHistory()
+				ShouldLock()
+				defer ShouldUnlock()
 				return Config
 			</func>
 			<func name="AddServer" var="" return="(result []Server)">
@@ -210,6 +213,41 @@
 			<func name="RegisterServer" var="req string" return="(result bool)">
 				RegisterWorker(req)
 				return true
+			</func>
+
+				<func name="UpdateKubernetes" var="req k8sConfig" return="(result bool)">
+				ShouldLock()
+				Config.KubeSettings = req
+				ShouldUnlock()
+				SaveConfig(&Config);
+				return true
+			</func>
+
+			<func name="AddPod" var="req PodConfig" return="( watching []PodConfig)">
+				ShouldLock()
+				Config.KubeSettings.Monitoring = append(Config.KubeSettings.Monitoring, req)
+				watching = Config.KubeSettings.Monitoring
+				ShouldUnlock()
+				SaveConfig(&Config);
+				return
+			</func>
+
+			<func name="UpdatePod" var="req PodConfig" return="(result bool)">
+				ShouldLock()
+				for index,target := range Config.KubeSettings.Monitoring {
+					if target.Name == req.Name {
+						Config.KubeSettings.Monitoring[index] = req
+					}
+				}
+				ShouldUnlock()
+				SaveConfig(&Config);
+				return true
+			</func>
+
+			<func name="GetPods" var="" return="(result []Pod)">
+				ClearHistory()
+				list,_ := RequestPods()
+				return list.Items
 			</func>
 
 	</methods>

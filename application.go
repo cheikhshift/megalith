@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/cheikhshift/db"
@@ -13,14 +12,20 @@ import (
 	"github.com/fatih/color"
 	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
+	"github.com/opentracing/opentracing-go"
 	"html"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
+	_ "net/http/pprof"
+	"net/url"
 	"os"
-	"reflect"
+	"sourcegraph.com/sourcegraph/appdash"
+	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
+	"sourcegraph.com/sourcegraph/appdash/traceapp"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +33,7 @@ import (
 
 var store = sessions.NewCookieStore([]byte("a very very very very secret key"))
 
-var Prod = true
+var Prod = false
 
 var TemplateFuncStore template.FuncMap
 var templateCache = gosweb.NewTemplateCache()
@@ -42,7 +47,7 @@ var FuncStored = StoreNetfn()
 
 type dbflf db.O
 
-func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
+func renderTemplate(w http.ResponseWriter, p *gosweb.Page, span opentracing.Span) {
 	defer func() {
 		if n := recover(); n != nil {
 			color.Red(fmt.Sprintf("Error loading template in path : web%s.tmpl reason : %s", p.R.URL.Path, n))
@@ -62,11 +67,25 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 			} else {
 				pag.R = p.R
 				pag.Session = p.Session
-				renderTemplate(w, pag) ///your-500-page"
+				renderTemplate(w, pag, span) ///your-500-page"
 
 			}
 		}
 	}()
+
+	var sp opentracing.Span
+	opName := fmt.Sprintf("Building template %s%s", p.R.URL.Path, ".tmpl")
+
+	if true {
+		carrier := opentracing.HTTPHeadersCarrier(p.R.Header)
+		wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+		if err != nil {
+			sp = opentracing.StartSpan(opName)
+		} else {
+			sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+		}
+	}
+	defer sp.Finish()
 
 	// TemplateFuncStore
 
@@ -98,7 +117,7 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 		if pag.IsResource {
 			w.Write(pag.Body)
 		} else {
-			renderTemplate(w, pag) // "/your-500-page"
+			renderTemplate(w, pag, span) // "/your-500-page"
 
 		}
 		return
@@ -117,11 +136,18 @@ func renderTemplate(w http.ResponseWriter, p *gosweb.Page) {
 // this http.HandlerFunc.
 // Use MakeHandler(http.HandlerFunc) to serve your web
 // directory from memory.
-func MakeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+func MakeHandler(fn func(http.ResponseWriter, *http.Request, opentracing.Span)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		if attmpt := apiAttempt(w, r); !attmpt {
-			fn(w, r)
+		span := opentracing.StartSpan(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
+		defer span.Finish()
+		carrier := opentracing.HTTPHeadersCarrier(r.Header)
+		if err := span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier); err != nil {
+			log.Fatalf("Could not inject span context into header: %v", err)
+		}
+
+		if attmpt := apiAttempt(w, r, span); !attmpt {
+			fn(w, r, span)
 		}
 		context.Clear(r)
 
@@ -132,7 +158,7 @@ func mResponse(v interface{}) string {
 	data, _ := json.Marshal(&v)
 	return string(data)
 }
-func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
+func apiAttempt(w http.ResponseWriter, r *http.Request, span opentracing.Span) (callmet bool) {
 	var response string
 	response = ""
 	var session *sessions.Session
@@ -143,8 +169,54 @@ func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
 
 	if strings.Contains(r.URL.Path, "/") {
 
+		lastLine := ""
+		var sp opentracing.Span
+		opName := fmt.Sprintf(" []%s %s", r.Method, r.URL.Path)
+
+		if true {
+			carrier := opentracing.HTTPHeadersCarrier(r.Header)
+			wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+			if err != nil {
+				sp = opentracing.StartSpan(opName)
+			} else {
+				sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+			}
+		}
+		defer sp.Finish()
+		defer func() {
+			if n := recover(); n != nil {
+				log.Println("Web request (/) failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml :", strings.TrimSpace(lastLine))
+				log.Println("Reason : ", n)
+				//wheredefault
+				span.SetTag("error", true)
+				span.LogEvent(fmt.Sprintf("%s request at %s, reason : %s ", r.Method, r.URL.Path, n))
+
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "text/html")
+				pag, err := loadPage("/your-500-page")
+
+				if err != nil {
+					log.Println(err.Error())
+					callmet = true
+					return
+				}
+				pag.R = r
+				pag.Session = session
+				if pag.IsResource {
+					w.Write(pag.Body)
+				} else {
+					// renderTemplate(w, pag, span)
+
+				}
+
+				callmet = true
+			}
+		}()
+		lastLine = `if strings.Contains(r.URL.Path, ".map") || strings.Contains(r.URL.Path, "web/{{ server.Image }}") {`
 		if strings.Contains(r.URL.Path, ".map") || strings.Contains(r.URL.Path, "web/{{ server.Image }}") {
+			lastLine = `return true`
 			return true
+			lastLine = `}`
 		}
 
 	}
@@ -152,28 +224,129 @@ func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
 		return true
 	} else if isURL := (r.URL.Path == "/update/server" && r.Method == strings.ToUpper("POST")); !callmet && isURL {
 
-		decoder := json.NewDecoder(r.Body)
-		var tmvv PayloadOfRequest
-		err := decoder.Decode(&tmvv)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
-			return true
-		}
-		_ = NetProcessServer(tmvv.req)
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write(OK)
+		lastLine := ""
+		var sp opentracing.Span
+		opName := fmt.Sprintf(" []%s %s", r.Method, r.URL.Path)
 
+		if true {
+			carrier := opentracing.HTTPHeadersCarrier(r.Header)
+			wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+			if err != nil {
+				sp = opentracing.StartSpan(opName)
+			} else {
+				sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+			}
+		}
+		defer sp.Finish()
+		defer func() {
+			if n := recover(); n != nil {
+				log.Println("Web request (/update/server) failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml :", strings.TrimSpace(lastLine))
+				log.Println("Reason : ", n)
+				//wheredefault
+				span.SetTag("error", true)
+				span.LogEvent(fmt.Sprintf("%s request at %s, reason : %s ", r.Method, r.URL.Path, n))
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "text/html")
+				pag, err := loadPage("/your-500-page")
+
+				if err != nil {
+					log.Println(err.Error())
+					callmet = true
+					return
+				}
+				pag.R = r
+				pag.Session = session
+				if pag.IsResource {
+					w.Write(pag.Body)
+				} else {
+					renderTemplate(w, pag, span) //"s"
+
+				}
+				callmet = true
+
+			}
+		}()
+
+		lastLine = `decoder := json.NewDecoder(r.Body)`
+		decoder := json.NewDecoder(r.Body)
+		lastLine = `var tmvv PayloadOfRequest`
+		var tmvv PayloadOfRequest
+		lastLine = `err := decoder.Decode(&tmvv)`
+		err := decoder.Decode(&tmvv)
+		lastLine = `if err != nil {`
+		if err != nil {
+			lastLine = `w.WriteHeader(http.StatusInternalServerError)`
+			w.WriteHeader(http.StatusInternalServerError)
+			lastLine = `w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))`
+			w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error())))
+			lastLine = `return true`
+			return true
+			lastLine = `}`
+		}
+		lastLine = `_ = NetProcessServer(tmvv.req)`
+		_ = NetProcessServer(tmvv.req)
+		lastLine = `w.Header().Set("Content-Type", "text/plain")`
+		w.Header().Set("Content-Type", "text/plain")
+		lastLine = `w.Write(OK)`
+		w.Write(OK)
 		callmet = true
 	} else if isURL := (r.URL.Path == "/mega" && r.Method == strings.ToUpper("POST")); !callmet && isURL {
 
-		Cfg := &MegaConfig{}
-		LoadConfig(&Config)
-		w.Header().Set("Content-Type", "application/json")
-		retjson := []byte(mResponse(Cfg))
-		w.Write(retjson)
-		retjson = nil
+		lastLine := ""
+		var sp opentracing.Span
+		opName := fmt.Sprintf(" []%s %s", r.Method, r.URL.Path)
 
+		if true {
+			carrier := opentracing.HTTPHeadersCarrier(r.Header)
+			wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+			if err != nil {
+				sp = opentracing.StartSpan(opName)
+			} else {
+				sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+			}
+		}
+		defer sp.Finish()
+		defer func() {
+			if n := recover(); n != nil {
+				log.Println("Web request (/mega) failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml :", strings.TrimSpace(lastLine))
+				log.Println("Reason : ", n)
+				//wheredefault
+				span.SetTag("error", true)
+				span.LogEvent(fmt.Sprintf("%s request at %s, reason : %s ", r.Method, r.URL.Path, n))
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "text/html")
+				pag, err := loadPage("/your-500-page")
+
+				if err != nil {
+					log.Println(err.Error())
+					callmet = true
+					return
+				}
+				pag.R = r
+				pag.Session = session
+				if pag.IsResource {
+					w.Write(pag.Body)
+				} else {
+					renderTemplate(w, pag, span) //"s"
+
+				}
+				callmet = true
+
+			}
+		}()
+
+		lastLine = `Cfg := &MegaConfig{}`
+		Cfg := &MegaConfig{}
+		lastLine = `LoadConfig(&Config)`
+		LoadConfig(&Config)
+		lastLine = `w.Header().Set("Content-Type", "application/json")`
+		w.Header().Set("Content-Type", "application/json")
+		lastLine = `retjson := []byte(mResponse(Cfg))`
+		retjson := []byte(mResponse(Cfg))
+		lastLine = `w.Write(retjson)`
+		w.Write(retjson)
+		lastLine = `retjson = nil`
+		retjson = nil
 		callmet = true
 	}
 
@@ -191,28 +364,7 @@ func apiAttempt(w http.ResponseWriter, r *http.Request) (callmet bool) {
 	session = nil
 	return
 }
-func SetField(obj interface{}, name string, value interface{}) error {
-	structValue := reflect.ValueOf(obj).Elem()
-	structFieldValue := structValue.FieldByName(name)
 
-	if !structFieldValue.IsValid() {
-		return fmt.Errorf("No such field: %s in obj", name)
-	}
-
-	if !structFieldValue.CanSet() {
-		return fmt.Errorf("Cannot set %s field value", name)
-	}
-
-	structFieldType := structFieldValue.Type()
-	val := reflect.ValueOf(value)
-	if structFieldType != val.Type() {
-		invalidTypeError := errors.New("Provided value type didn't match obj field type")
-		return invalidTypeError
-	}
-
-	structFieldValue.Set(val)
-	return nil
-}
 func DebugTemplate(w http.ResponseWriter, r *http.Request, tmpl string) {
 	lastline := 0
 	linestring := ""
@@ -429,7 +581,7 @@ func DebugTemplatePath(tmpl string, intrf interface{}) {
 	}
 
 }
-func Handler(w http.ResponseWriter, r *http.Request) {
+func Handler(w http.ResponseWriter, r *http.Request, span opentracing.Span) {
 	var p *gosweb.Page
 	p, err := loadPage(r.URL.Path)
 	var session *sessions.Session
@@ -438,11 +590,26 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		session, _ = store.New(r, "session-")
 	}
 
+	var sp opentracing.Span
+	opName := fmt.Sprintf(fmt.Sprintf("Web:/%s", r.URL.Path))
+
+	if true {
+		carrier := opentracing.HTTPHeadersCarrier(r.Header)
+		wireContext, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, carrier)
+		if err != nil {
+			sp = opentracing.StartSpan(opName)
+		} else {
+			sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+		}
+	}
+	defer sp.Finish()
+
 	if err != nil {
 		log.Println(err.Error())
 
 		w.WriteHeader(http.StatusNotFound)
-
+		span.SetTag("error", true)
+		span.LogEvent(fmt.Sprintf("%s request at %s, reason : %s ", r.Method, r.URL.Path, err))
 		pag, err := loadPage("/your-404-page")
 
 		if err != nil {
@@ -462,7 +629,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		if pag.IsResource {
 			w.Write(pag.Body)
 		} else {
-			renderTemplate(w, pag) //"/your-500-page"
+			renderTemplate(w, pag, span) //"/your-500-page"
 		}
 		session = nil
 		context.Clear(r)
@@ -473,7 +640,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		p.Session = session
 		p.R = r
-		renderTemplate(w, p) //fmt.Sprintf("web%s", r.URL.Path)
+		renderTemplate(w, p, span) //fmt.Sprintf("web%s", r.URL.Path)
 		session.Save(r, w)
 		// log.Println(w)
 	} else {
@@ -501,10 +668,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 var WebCache = gosweb.NewCache()
 
 func loadPage(title string) (*gosweb.Page, error) {
-
-	if lPage, ok := WebCache.Get(title); ok {
-		return &lPage, nil
-	}
 
 	var nPage = gosweb.Page{}
 	if roottitle := (title == "/"); roottitle {
@@ -564,6 +727,8 @@ func loadPage(title string) (*gosweb.Page, error) {
 		return &nPage, nil
 	}
 
+	//wheredefault
+
 }
 
 var Config *MegaConfig
@@ -577,239 +742,517 @@ func init() {
 //
 func NetLoadWebAsset(args ...interface{}) string {
 
-	data, err := Asset(fmt.Sprintf("web%s", args[0].(string)))
-	if err != nil {
-		return err.Error()
-	}
-	return string(data)
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `data,err := Asset( fmt.Sprintf("web%s", args[0].(string) ) )`
+	data, err := Asset(fmt.Sprintf("web%s", args[0].(string)))
+	lastLine = `if err != nil {`
+	if err != nil {
+		lastLine = `return err.Error()`
+		return err.Error()
+		lastLine = `}`
+	}
+	lastLine = `return string(data)`
+	return string(data)
 }
 
 //
 func NetMega() (result *MegaConfig) {
 
-	ShouldLock()
-	if WorkerAddressPort != DefaultAddress {
-		LoadConfig(&Config)
-	}
-	ShouldUnlock()
-	return Config
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `if WorkerAddressPort != DefaultAddress {`
+	if WorkerAddressPort != DefaultAddress {
+		lastLine = `LoadConfig(&Config)`
+		LoadConfig(&Config)
+		lastLine = `}`
+	}
+	lastLine = `ClearHistory()`
+	ClearHistory()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `defer ShouldUnlock()`
+	defer ShouldUnlock()
+	lastLine = `return Config`
+	return Config
 }
 
 //
 func NetAddServer() (result []Server) {
 
-	ShouldLock()
-	randint := rand.Intn(200) + 50 + len(Config.Servers)
-	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
-	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
-	Config.Servers = append(Config.Servers, ns)
-	if DispatcherAddressPort != DefaultAddress {
-		ioutil.WriteFile(fmt.Sprintf(urlformat, GenLogName(ns.ID), LockExt), OK, 0700)
-	}
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return Config.Servers
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `randint := rand.Intn(200) + 50 + len(Config.Servers)`
+	randint := rand.Intn(200) + 50 + len(Config.Servers)
+	lastLine = `genimage := fmt.Sprintf("https://picsum.photos/%v/%v",randint, randint)`
+	genimage := fmt.Sprintf("https://picsum.photos/%v/%v", randint, randint)
+	lastLine = `ns := Server{ID : core.NewLen(20), Nickname:"New server",Image : genimage}`
+	ns := Server{ID: core.NewLen(20), Nickname: "New server", Image: genimage}
+	lastLine = `Config.Servers = append(Config.Servers, ns)`
+	Config.Servers = append(Config.Servers, ns)
+	lastLine = `if DispatcherAddressPort != DefaultAddress {`
+	if DispatcherAddressPort != DefaultAddress {
+		lastLine = `ioutil.WriteFile(fmt.Sprintf(urlformat, GenLogName(ns.ID), LockExt), OK ,0700)`
+		ioutil.WriteFile(fmt.Sprintf(urlformat, GenLogName(ns.ID), LockExt), OK, 0700)
+		lastLine = `}`
+	}
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return Config.Servers`
+	return Config.Servers
 }
 
 //
 func NetDServer(req Server) (result []Server) {
 
-	result = []Server{}
-	ShouldLock()
-	for _, target := range Config.Servers {
-		if target.ID != req.ID {
-			result = append(result, target)
-		}
-	}
-	DeleteLog(req.ID)
-	Config.Servers = result
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `result = []Server{}`
+	result = []Server{}
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `for _,target := range Config.Servers {`
+	for _, target := range Config.Servers {
+		lastLine = `if target.ID != req.ID {`
+		if target.ID != req.ID {
+			lastLine = `result = append(result, target)`
+			result = append(result, target)
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `DeleteLog(req.ID)`
+	DeleteLog(req.ID)
+	lastLine = `Config.Servers = result`
+	Config.Servers = result
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return`
+	return
 }
 
 //
 func NetUServer(req Server) (result bool) {
 
-	ShouldLock()
-	for index, target := range Config.Servers {
-		if target.ID == req.ID {
-			Config.Servers[index] = req
-		}
-	}
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `for index,target := range Config.Servers {`
+	for index, target := range Config.Servers {
+		lastLine = `if target.ID == req.ID {`
+		if target.ID == req.ID {
+			lastLine = `Config.Servers[index] = req`
+			Config.Servers[index] = req
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetAddContact() (result []Contact) {
 
-	ShouldLock()
-	nc := Contact{ID: core.NewLen(20), Nickname: "New contact"}
-	Config.Contacts = append(Config.Contacts, nc)
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return Config.Contacts
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `nc := Contact{ID : core.NewLen(20), Nickname:"New contact"}`
+	nc := Contact{ID: core.NewLen(20), Nickname: "New contact"}
+	lastLine = `Config.Contacts = append(Config.Contacts, nc)`
+	Config.Contacts = append(Config.Contacts, nc)
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return Config.Contacts`
+	return Config.Contacts
 }
 
 //
 func NetGetLog(req Server) (result RequestLog) {
 
-	ShouldLock()
-	LoadLog(req.ID, &result)
-	ShouldUnlock()
-	return
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `LoadLog(req.ID, &result)`
+	LoadLog(req.ID, &result)
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `return`
+	return
 }
 
 //
 func NetDContact(req Contact) (result []Contact) {
 
-	result = []Contact{}
-	ShouldLock()
-	for _, target := range Config.Contacts {
-		if target.ID != req.ID {
-			result = append(result, target)
+	lastLine := ""
+
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
 		}
+	}()
+	lastLine = `result = []Contact{}`
+	result = []Contact{}
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `for _,target := range Config.Contacts {`
+	for _, target := range Config.Contacts {
+		lastLine = `if target.ID != req.ID {`
+		if target.ID != req.ID {
+			lastLine = `result = append(result, target)`
+			result = append(result, target)
+			lastLine = `}`
+		}
+		lastLine = `}`
 	}
-
+	lastLine = `Config.Contacts = result`
 	Config.Contacts = result
+	lastLine = `ShouldUnlock()`
 	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
 	SaveConfig(&Config)
+	lastLine = `return`
 	return
-
 }
 
 //
 func NetUContact(req Contact) (result bool) {
 
-	ShouldLock()
-	for index, target := range Config.Contacts {
-		if target.ID == req.ID {
-			Config.Contacts[index] = req
-		}
-	}
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `for index,target := range Config.Contacts {`
+	for index, target := range Config.Contacts {
+		lastLine = `if target.ID == req.ID {`
+		if target.ID == req.ID {
+			lastLine = `Config.Contacts[index] = req`
+			Config.Contacts[index] = req
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUMail(req MailSettings) (result bool) {
 
-	ShouldLock()
-	Config.Mail = req
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `Config.Mail = req`
+	Config.Mail = req
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUTw(req TwilioInfo) (result bool) {
 
-	ShouldLock()
-	Config.SMS = req
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `Config.SMS = req`
+	Config.SMS = req
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUSetting(req Settings) (result bool) {
 
-	ShouldLock()
-	Config.Misc = req
-	Config.LastReset = time.Now().Unix()
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `Config.Misc = req`
+	Config.Misc = req
+	lastLine = `Config.LastReset = time.Now().Unix()`
+	Config.LastReset = time.Now().Unix()
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetProcessServer(req string) (result bool) {
 
-	LoadConfig(&Config)
-	server, index := FindServer(req)
-	Process(server, index)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `LoadConfig(&Config)`
+	LoadConfig(&Config)
+	lastLine = `server,index := FindServer(req)`
+	server, index := FindServer(req)
+	lastLine = `Process(server,index)`
+	Process(server, index)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUpdateServer(req Server) (result bool) {
 
-	ShouldLock()
-	_, index := FindServer(req.ID)
-	Config.Servers[index].Uptime = req.Uptime
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `_,index := FindServer(req.ID)`
+	_, index := FindServer(req.ID)
+	lastLine = `Config.Servers[index].Uptime = req.Uptime`
+	Config.Servers[index].Uptime = req.Uptime
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config)`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetRegisterServer(req string) (result bool) {
 
-	RegisterWorker(req)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `RegisterWorker(req)`
+	RegisterWorker(req)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetUpdateKubernetes(req k8sConfig) (result bool) {
 
-	ShouldLock()
-	Config.KubeSettings = req
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `Config.KubeSettings = req`
+	Config.KubeSettings = req
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetAddPod(req PodConfig) (watching []PodConfig) {
 
-	ShouldLock()
-	Config.KubeSettings.Monitoring = append(Config.KubeSettings.Monitoring, req)
-	watching = Config.KubeSettings.Monitoring
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `Config.KubeSettings.Monitoring = append(Config.KubeSettings.Monitoring, req)`
+	Config.KubeSettings.Monitoring = append(Config.KubeSettings.Monitoring, req)
+	lastLine = `watching = Config.KubeSettings.Monitoring`
+	watching = Config.KubeSettings.Monitoring
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return`
+	return
 }
 
 //
 func NetUpdatePod(req PodConfig) (result bool) {
 
-	ShouldLock()
-	for index, target := range Config.KubeSettings.Monitoring {
-		if target.Name == req.Name {
-			Config.KubeSettings.Monitoring[index] = req
-		}
-	}
-	ShouldUnlock()
-	SaveConfig(&Config)
-	return true
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ShouldLock()`
+	ShouldLock()
+	lastLine = `for index,target := range Config.KubeSettings.Monitoring {`
+	for index, target := range Config.KubeSettings.Monitoring {
+		lastLine = `if target.Name == req.Name {`
+		if target.Name == req.Name {
+			lastLine = `Config.KubeSettings.Monitoring[index] = req`
+			Config.KubeSettings.Monitoring[index] = req
+			lastLine = `}`
+		}
+		lastLine = `}`
+	}
+	lastLine = `ShouldUnlock()`
+	ShouldUnlock()
+	lastLine = `SaveConfig(&Config);`
+	SaveConfig(&Config)
+	lastLine = `return true`
+	return true
 }
 
 //
 func NetGetPods() (result []Pod) {
 
-	list, _ := RequestPods()
-	return list.Items
+	lastLine := ""
 
+	defer func() {
+		if n := recover(); n != nil {
+			log.Println("Pipeline failed at line :", gosweb.GetLine(".//gos.gxml", lastLine), "Of file:.//gos.gxml:", strings.TrimSpace(lastLine))
+			log.Println("Reason : ", n)
+
+		}
+	}()
+	lastLine = `ClearHistory()`
+	ClearHistory()
+	lastLine = `list,_ := RequestPods()`
+	list, _ := RequestPods()
+	lastLine = `return list.Items`
+	return list.Items
 }
 
 func templateFNang(localid string, d interface{}) {
@@ -1205,13 +1648,43 @@ func main() {
 	}
 
 	//psss go code here : func main()
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 7,
-		HttpOnly: true,
-		Secure:   true,
-		Domain:   "",
+	store := appdash.NewMemoryStore()
+
+	// Listen on any available TCP port locally.
+	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		log.Fatal(err)
 	}
+	collectorPort := l.Addr().(*net.TCPAddr).Port
+
+	// Start an Appdash collection server that will listen for spans and
+	// annotations and add them to the local collector (stored in-memory).
+	cs := appdash.NewServer(l, appdash.NewLocalCollector(store))
+	go cs.Start()
+
+	// Print the URL at which the web UI will be running.
+	appdashPort := 8700
+	appdashURLStr := fmt.Sprintf("http://localhost:%d", appdashPort)
+	appdashURL, err := url.Parse(appdashURLStr)
+	if err != nil {
+		log.Fatalf("Error parsing %s: %s", appdashURLStr, err)
+	}
+	color.Red("✅ Important!")
+	log.Println("To see your traces, go to ", appdashURL)
+
+	// Start the web UI in a separate goroutine.
+	tapp, err := traceapp.New(nil, appdashURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tapp.Store = store
+	tapp.Queryer = store
+	go func() {
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", appdashPort), tapp))
+	}()
+
+	tracer := appdashot.NewTracer(appdash.NewRemoteCollector(fmt.Sprintf(":%d", collectorPort)))
+	opentracing.InitGlobalTracer(tracer)
 
 	port := ":9001"
 	if envport := os.ExpandEnv("$PORT"); envport != "" {

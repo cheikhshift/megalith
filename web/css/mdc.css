@@ -12,7 +12,16 @@
 	overflow-y: auto;
 	background: #fff;
 	z-index: -1;
+	right:0px;
+	transition: all 0.07s ease;
 }
+
+
+.sub-open {
+	width: calc(100% - 239px) !important;
+}
+
+
 .mdc-card {
 	background: #ededed;
 }

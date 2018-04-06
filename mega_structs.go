@@ -7,15 +7,18 @@ type PayloadOfRequest struct {
 	req string
 }
 
+type Tracker map[string]bool
+
 type MegaConfig struct {
-	Mail         MailSettings
-	Servers      []Server
-	Cl           Clock
-	Contacts     []Contact
-	SMS          TwilioInfo
-	Misc         Settings
-	LastReset    int64
-	KubeSettings k8sConfig
+	Mail          MailSettings
+	Servers       []Server
+	Cl            Clock
+	Contacts      []Contact
+	SMS           TwilioInfo
+	Misc          Settings
+	LastReset     int64
+	KubeSettings  k8sConfig
+	AlertsHistory Tracker
 }
 type TrLock struct {
 	Lock *sync.RWMutex

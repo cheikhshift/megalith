@@ -10,31 +10,52 @@ import (
 
 //Notification dispatcher
 func Notify(server Server, contacts []Contact, mailcfg MailSettings, smsinfo TwilioInfo) {
+
 	if contacts != nil {
 		for _, contact := range contacts {
 			if inArr(contact.Watching, server.ID) && contact.Threshold > (server.Uptime*100) {
+				var err error
+				messageId := fmt.Sprintf(TwFormat, server.ID, DownMsg)
+				safetoAlert := ShouldAlert(messageId)
+
+				if !safetoAlert {
+					return
+				}
+
 				if contact.Email != EmptyString {
-					err := SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email, mailcfg)
+					err = SendEmail(fmt.Sprintf(DownSub, server.Host), fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), contact.Email, mailcfg)
 					if err != nil {
 						log.Println(err)
 					}
 				}
 				if contact.Phone != EmptyString {
-					err := contact.SendSMS(fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), smsinfo)
+					err = contact.SendSMS(fmt.Sprintf(DownMsg, contact.Nickname, server.Nickname, server.Host, contact.Threshold), smsinfo)
 					if err != nil {
 						log.Println(err)
 					}
+				}
+
+				if err != nil {
+					RemoveWithID(server.ID)
 				}
 			}
 		}
 	}
 }
 
-// Func used to notify users on kubernetes faults
+// Func used to notify users on kubernetes' stats
 func NotifyPodContacts(pod PodConfig, contacts []Contact, mailcfg MailSettings, smsinfo TwilioInfo, message string) {
+	messageId := fmt.Sprintf(TwFormat, pod.Name, message)
+
+	safetoAlert := ShouldAlert(messageId)
+	if !safetoAlert {
+		return
+	}
+
 	if contacts != nil {
 		for _, contact := range contacts {
 			if inArr(contact.Pods, pod.Name) {
+				var err error
 				if contact.Email != EmptyString {
 					err := SendEmail(fmt.Sprintf(DownSubk8s, pod.Name), fmt.Sprintf(DownMsgk8s, contact.Nickname, pod.Name, message), contact.Email, mailcfg)
 					if err != nil {
@@ -46,6 +67,10 @@ func NotifyPodContacts(pod PodConfig, contacts []Contact, mailcfg MailSettings, 
 					if err != nil {
 						log.Println(err)
 					}
+				}
+
+				if err != nil {
+					RemoveWithID(pod.Name)
 				}
 			}
 		}

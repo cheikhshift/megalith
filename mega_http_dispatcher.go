@@ -29,9 +29,14 @@ func Process(server Server, servIndex int) {
 	success, failed := CountAndReturn(logcurrent.Requests, EmptyString)
 	ShouldLock()
 	Config.Servers[servIndex].Uptime = float64(success) / float64(success+failed)
-	go Notify(Config.Servers[servIndex], Config.Contacts, Config.Mail, Config.SMS)
+	latestServerInformation := Config.Servers[servIndex]
 	ShouldUnlock()
 
+	if Config.AlertsHistory == nil {
+		ClearHistory()
+	}
+
+	go Notify(latestServerInformation, Config.Contacts, Config.Mail, Config.SMS)
 	go SaveConfig(&Config)
 }
 

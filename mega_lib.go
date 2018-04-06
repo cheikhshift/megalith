@@ -50,6 +50,7 @@ func InitConfigLoad() {
 		}
 
 	}
+
 }
 
 func LaunchBrowser() {
@@ -74,4 +75,41 @@ func ChdirHome() {
 	} else {
 		os.Chdir(os.ExpandEnv("$HOME"))
 	}
+}
+
+func AddToHistory(ID string) {
+	ShouldLock()
+	Config.AlertsHistory[ID] = false
+	ShouldUnlock()
+}
+
+func RemoveWithID(ID string) {
+	ShouldLock()
+	delete(Config.AlertsHistory, ID)
+	ShouldUnlock()
+}
+
+func ClearHistory() {
+	ShouldLock()
+	Config.AlertsHistory = make(Tracker)
+	ShouldUnlock()
+}
+
+func CheckHistory(ID string) (exists bool) {
+	ShouldLock()
+	_, exists = Config.AlertsHistory[ID]
+	ShouldUnlock()
+	return
+}
+
+func ShouldAlert(ID string) (alert bool) {
+
+	InHistory := CheckHistory(ID)
+
+	if !InHistory {
+		alert = true
+		AddToHistory(ID)
+	}
+
+	return
 }

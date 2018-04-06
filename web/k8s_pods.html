@@ -39,7 +39,7 @@
         <i class="material-icons mdc-list-item__graphic" aria-hidden="true">contacts</i> Contacts
       </a>
                 <hr class="mdc-list-divider ">
-                <label class="mdc-list-item "><i class="mdc-list-item__graphic material-icons">new_releases</i>New! K8s Monitoring</label>
+                <label class="mdc-list-item ">k8s settings</label>
                 <a class="mdc-list-item " href="/k8s_setup">
          <i class="material-icons mdc-list-item__graphic" aria-hidden="true">terrain</i> Configuration
          </a>
@@ -76,10 +76,10 @@
         </div>
             <div class="text-center" ng-show="mega.KubeSettings.MetricAPIHost == '' || mega.KubeSettings.BadConfig">
                 <h3>Please configure k8s API settings.</h3>
-                <p>Megalith needs to know the location your k8s Metric api.</p>
+                <p>Megalith needs to know the location of your k8s Metric api.</p>
                 <p><a href="/k8s_setup" class="mdc-button--raised mdc-button">Setup</a></p>
             </div>
-           <div ng-show="mega.KubeSettings.MetricAPIHost != ''" class="row full-height">
+           <div ng-hide="mega.KubeSettings.MetricAPIHost == '' || mega.KubeSettings.BadConfig" class="row full-height">
             <div class="col-3 full-height">
                 <p style="padding: 10px;margin-bottom: 5px;">
                     <input type="text" placeholder="Filter by pod/group name" class="form-control" ng-model="search.text">
